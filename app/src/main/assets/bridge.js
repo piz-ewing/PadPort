@@ -348,6 +348,18 @@
         try { await importSaves(backup); host.importReady(); }
         catch (e) { host.saveError(text('import_error', e.message)); }
     }
+    window.addEventListener('load', () => {
+        if (config.engine !== 'MV' || !window.Scene_Boot || !document.fonts) return;
+        const original = Scene_Boot.prototype.isGameFontLoaded;
+        if (typeof original !== 'function') return;
+        Scene_Boot.prototype.isGameFontLoaded = function () {
+            if (original.apply(this, arguments)) return true;
+            const failed = Array.from(document.fonts).some(font =>
+                font.family.replace(/^["']|["']$/g, '') === 'GameFont' && font.status === 'error');
+            if (failed || Date.now() - this._startDate >= 60000) throw new Error(text('game_font_error'));
+            return false;
+        };
+    });
     window.PadPort = Object.freeze({poll, inputMode: () => inputMode, clearInput, pause, resume, exportSaves, restore, collectSaves, importSaves, fitToViewport});
     // Synchronize a mode switch before game listeners process the first native key.
     // Otherwise disconnecting the old gamepad could clear that newly pressed key.

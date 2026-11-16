@@ -113,6 +113,9 @@ final class GameSource {
     byte[] read(String relative,int limit) throws IOException {
         try(InputStream in=open(relative)) {return readBounded(context,in,limit);}
     }
+    byte[] browserFont(String relative) throws IOException {
+        return FontCollection.matches(relative) ? FontCollection.firstFace(read(relative,FontCollection.LIMIT)) : null;
+    }
     /** The first {@code count} bytes (fewer for shorter files). */
     byte[] head(String relative,int count) throws IOException {
         try(InputStream in=open(relative)) {

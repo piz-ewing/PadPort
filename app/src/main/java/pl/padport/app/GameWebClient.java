@@ -81,6 +81,8 @@ final class GameWebClient extends WebViewClient {
             if(source==null) return error(404,"Not found",path);
             GameSource.Entry entry=source.entry(path);
             if(entry==null) return error(404,"Not found",path);
+            byte[] font=source.browserFont(path);
+            if(font!=null) return bytes(FontCollection.mime(font),font);
             String rangeHeader=null;
             for(var h:request.getRequestHeaders().entrySet()) if(h.getKey().equalsIgnoreCase("Range")) rangeHeader=h.getValue();
             Map<String,String> headers=new HashMap<>();headers.put("Cache-Control","no-store");

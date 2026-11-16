@@ -54,6 +54,23 @@ function setup(language, files={}) {
 }
 function pad(id=7,buttons=[]) {return {nativeId:id,id:'Xbox test',index:0,axes:[.75,-1,.2,.4],buttons:Array.from({length:17},(_,i)=>buttons[i]||0)};}
 
+test('MV font boot preserves loading and success, and reports failed or stalled fonts',()=>{
+    const t=setup('zh');
+    t.sandbox.__PADPORT_CONFIG__.engine='MV';
+    let ready=false;
+    t.sandbox.Scene_Boot=function(){this._startDate=Date.now();};
+    t.sandbox.Scene_Boot.prototype.isGameFontLoaded=function(){return ready;};
+    const font={family:'GameFont',status:'loading'};
+    t.sandbox.document.fonts=[font];t.fire('load');
+    const boot=new t.sandbox.Scene_Boot();
+    assert.equal(boot.isGameFontLoaded(),false);
+    ready=true;assert.equal(boot.isGameFontLoaded(),true);
+    ready=false;font.status='error';
+    assert.throws(()=>boot.isGameFontLoaded(),/游戏字体加载失败/);
+    font.status='loading';boot._startDate=Date.now()-60001;
+    assert.throws(()=>boot.isGameFontLoaded(),/游戏字体加载失败/);
+});
+
 test('native buttons and analog values are Gamepad objects, with zero keyboard events',()=>{
     const t=setup();t.set({revision:2,paused:false,pads:[pad(7,{0:1,6:.8}),null,null,null]});
     const p=t.sandbox.navigator.getGamepads()[0];

@@ -272,6 +272,8 @@ final class GameHttpServer implements Closeable {
     private boolean file(Request r, OutputStream out, String path) throws IOException {
         GameSource.Entry entry = source.entry(path);
         if (entry == null) { error(out, r, 404, "Not found"); return true; }
+        byte[] font = source.browserFont(path);
+        if (font != null) { bytes(out, r, FontCollection.mime(font), font); return true; }
         String mime = GameWebClient.mime(source.mimePath(path));
         if (mime.startsWith("text/") || mime.contains("javascript") || mime.contains("json")) mime += "; charset=utf-8";
         String range = r.headers.get("range");

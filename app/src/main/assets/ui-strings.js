@@ -3,6 +3,7 @@
     'use strict';
     const strings = {
         en: {
+            game_font_error: 'GameFont failed to load. Check the game font files and fonts/gamefont.css.',
             ttm_title_hint: 'Start or load a game to open the notebook.',
             ttm_notebook: 'Notebook',
             ttm_characters: 'Characters',
@@ -46,6 +47,7 @@
             right_stick: 'Right: '
         },
         zh: {
+            game_font_error: '游戏字体加载失败，请检查字体文件及 fonts/gamefont.css。',
             ttm_title_hint: '开始或载入游戏后可查看笔记本。',
             ttm_notebook: '笔记本',
             ttm_characters: '人物',
