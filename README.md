@@ -142,8 +142,17 @@ to the game folder. It copies existing saves, not unsaved gameplay progress.
 Normal gameplay never synchronizes with that directory.
 
 MV transfers include configuration, global metadata, numbered slots and their
-backups, using the game’s filename and browser-key rules. Files with plugin-only
-names that cannot be mapped to a browser save are reported before importing.
+backups, using the game’s filename and browser-key rules. Plugin slots used
+through StorageManager are discovered as the game runs; filename-based slots
+are accepted when the engine confirms their mapping. Unmapped or conflicting
+files are reported before importing.
+MV desktop saves can retain an earlier title in their global index: desktop
+MV ignores that field, while browser MV checks it. Directory import adapts the
+index titles of copied numbered slots to the current game, including index
+backups, and requires matching engine identifiers. Other index fields and slot
+payloads stay unchanged. Invalid indices fail before app saves are replaced.
+Use saves from a compatible version of the selected game; adapting metadata
+does not establish save-data compatibility.
 MZ transfers use the game’s localforage keys and `.rmmzsave` files.
 The existing JSON backup import and export remain available.
 

@@ -160,7 +160,7 @@
     </string-array>
     <string name="import_directory_saves">从游戏目录导入存档</string>
     <string name="export_directory_saves">导出存档到游戏目录</string>
-    <string name="import_directory_details">将本游戏 save 目录（通常为 www/save）中的存档复制到 PadPort，覆盖应用内的同名存档并重启游戏。原目录文件保持不变。</string>
+    <string name="import_directory_details">将本游戏 save 目录（通常为 www/save）中的存档复制到 PadPort，覆盖应用内的同名存档并重启游戏。MV 存档的引擎标识一致时，会将已导入槽的索引标题适配为当前游戏标题。请使用本游戏兼容版本的存档。原目录文件保持不变。</string>
     <string name="export_directory_details">将本游戏已经保存在 PadPort 内的存档复制到游戏的 save 目录（通常为 www/save），覆盖目录中的同名文件。此操作不会保存当前尚未存档的进度。</string>
     <string name="directory_saves_exported">已向游戏目录导出 %1$d 个存档文件。</string>
 </resources>

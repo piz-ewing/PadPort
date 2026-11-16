@@ -4,6 +4,8 @@
     const strings = {
         en: {
             unsupported_save: 'Cannot map this save file to browser storage: {0}',
+            invalid_save_index: 'The MV save index is invalid. No saves were imported.',
+            incompatible_save_index: 'The MV save index uses a different engine identifier. No saves were imported.',
             no_directory_saves: 'No supported saves were found in the game save folder.',
             no_app_saves: 'This game has no app saves to export.',
             game_font_error: 'GameFont failed to load. Check the game font files and fonts/gamefont.css.',
@@ -51,6 +53,8 @@
         },
         zh: {
             unsupported_save: '无法将此存档文件映射到应用存储：{0}',
+            invalid_save_index: 'MV 存档索引无效，未导入任何存档。',
+            incompatible_save_index: 'MV 存档索引的引擎标识不一致，未导入任何存档。',
             no_directory_saves: '游戏 save 目录中没有受支持的存档。',
             no_app_saves: '应用内没有本游戏可导出的存档。',
             game_font_error: '游戏字体加载失败，请检查字体文件及 fonts/gamefont.css。',
@@ -98,6 +102,8 @@
         },
         pl: {
             unsupported_save: 'Nie można przypisać pliku zapisu do magazynu przeglądarki: {0}',
+            invalid_save_index: 'Indeks zapisów MV jest nieprawidłowy. Nie zaimportowano zapisów.',
+            incompatible_save_index: 'Indeks zapisów MV ma inny identyfikator silnika. Nie zaimportowano zapisów.',
             no_directory_saves: 'Brak obsługiwanych zapisów w folderze save gry.',
             no_app_saves: 'Ta gra nie ma zapisów aplikacji do eksportu.',
             ttm_title_hint: 'Rozpocznij lub wczytaj grę, aby otworzyć notatnik.',

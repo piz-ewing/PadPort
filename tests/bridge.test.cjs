@@ -267,7 +267,10 @@ function saveTransfer(t, files = {}) {
     const storage={isLocalMode:()=>false,localFileDirectoryPath:()=>{throw Error('NW.js path must stay unused');},
         localFilePath(id){return this.localFileDirectoryPath()+(id<0?'config':id===0?'global':`file${id}`)+'.rpgsave';},
         webStorageKey:id=>id<0?'RPG Config':id===0?'RPG Global':`RPG File${id}`};
-    t.sandbox.StorageManager=storage;t.sandbox.DataManager={maxSavefiles:()=>4};
+    t.sandbox.StorageManager=storage;t.sandbox.DataManager={maxSavefiles:()=>4,_globalId:'MV'};
+    t.sandbox.$dataSystem={gameTitle:'Current title'};
+    t.sandbox.LZString={compressToBase64:value=>Buffer.from(value).toString('base64'),
+        decompressFromBase64:value=>Buffer.from(value,'base64').toString()};
     t.sandbox.PadPortHost.directoryTransfer=(json,id)=>{
         const request=JSON.parse(json);calls.push(request);
         const response=request.op==='import'?{ok:true,value:files}:{ok:true,value:Object.keys(request.files).length};
@@ -280,14 +283,16 @@ function saveTransfer(t, files = {}) {
 }
 
 test('manual MV copies preserve browser mode, source files, backup keys and untouched slots',async()=>{
-    const t=setup(),files={'File1.RPGSAVE':'slot==','global.rpgsave':'global==','config.rpgsave':'config==','file1.rpgsave.bak':'old=='};
-    const transfer=saveTransfer(t,files),original={...transfer.storage};
+    const index=Buffer.from(JSON.stringify([null,{globalId:'MV',title:'Current title'}])).toString('base64');
+    const t=setup(),files={'File1.RPGSAVE':'slot==','global.rpgsave':index,'config.rpgsave':'config==','file1.rpgsave.bak':'old=='};
+    const transfer=saveTransfer(t,files);
+    t.fire('DOMContentLoaded');const original={...transfer.storage};
     t.local.set('RPG File2','keep==');
     await t.sandbox.PadPortSaveTransfer.transfer('import');
     assert.equal(transfer.imported(),1);assert.deepEqual(transfer.errors,[]);
     assert.equal(t.local.get('RPG File1'),'slot==');assert.equal(t.local.get('RPG File1bak'),'old==');
-    assert.equal(t.local.get('RPG Global'),'global==');assert.equal(t.local.get('RPG Config'),'config==');
-    assert.equal(t.local.get('RPG File2'),'keep==');assert.deepEqual(files,{'File1.RPGSAVE':'slot==','global.rpgsave':'global==','config.rpgsave':'config==','file1.rpgsave.bak':'old=='});
+    assert.equal(t.local.get('RPG Global'),index);assert.equal(t.local.get('RPG Config'),'config==');
+    assert.equal(t.local.get('RPG File2'),'keep==');assert.deepEqual(files,{'File1.RPGSAVE':'slot==','global.rpgsave':index,'config.rpgsave':'config==','file1.rpgsave.bak':'old=='});
     assert.deepEqual(transfer.storage,original);assert.equal(transfer.storage.isLocalMode(),false);
     t.local.set('RPG File1','new==');
     await t.sandbox.PadPortSaveTransfer.transfer('export');
@@ -298,18 +303,100 @@ test('manual MV copies preserve browser mode, source files, backup keys and unto
     assert.equal(transfer.calls.length,2,'JSON backup and normal storage never access the game folder');
 });
 
+test('MV transfers include plugin slots observed during boot and verified filename slots',async()=>{
+    const t=setup(),files={'profile.rpgsave':'profile==','profile.rpgsave.bak':'previous==','shared.rpgsave':'shared==','file1.rpgsave':'slot=='};
+    const transfer=saveTransfer(t,files),storage=transfer.storage;
+    const originalPath=storage.localFilePath,originalKey=storage.webStorageKey;
+    storage.localFilePath=function(id){return id===-8?this.localFileDirectoryPath()+'profile.rpgsave':id==='shared'?this.localFileDirectoryPath()+'shared.rpgsave':originalPath.call(this,id);};
+    storage.webStorageKey=function(id){return id===-8?'Plugin Profile':id==='shared'?'Plugin Shared':originalKey.call(this,id);};
+    t.fire('DOMContentLoaded');
+    const observed=storage.webStorageKey,observedPath=storage.localFilePath;
+    t.fire('load');assert.equal(storage.webStorageKey,observed,'boot observers install once');
+    assert.equal(storage.webStorageKey.call(storage,-8),'Plugin Profile');
+    await t.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.deepEqual(transfer.errors,[]);assert.equal(transfer.imported(),1);
+    assert.equal(t.local.get('Plugin Profile'),'profile==');assert.equal(t.local.get('Plugin Profilebak'),'previous==');
+    assert.equal(t.local.get('Plugin Shared'),'shared==');
+    await t.sandbox.PadPortSaveTransfer.transfer('export');
+    assert.deepEqual(transfer.calls[1].files,files);
+    assert.equal(storage.isLocalMode(),false);
+    assert.equal(storage.localFilePath,observedPath);
+});
+
 test('MV manual import reports unsupported files before writes and rolls back quota failures',async()=>{
     const t=setup(),transfer=saveTransfer(t,{'file1.rpgsave':'new==','achievements.rpgsave':'plugin=='});
     t.local.set('RPG File1','original==');
     await t.sandbox.PadPortSaveTransfer.transfer('import');
     assert.equal(t.local.get('RPG File1'),'original==');assert.equal(transfer.imported(),0);
     assert.match(transfer.errors[0],/achievements/);
+    await t.sandbox.PadPortSaveTransfer.transfer('export');
+    assert.equal(transfer.calls[1].files['file1.rpgsave'],'original==','a rejected probe must not poison later exports');
     const u=setup(),other=saveTransfer(u,{'file1.rpgsave':'new==','file2.rpgsave':'second=='});
     u.local.set('RPG File1','original==');const set=u.sandbox.localStorage.setItem;
     u.sandbox.localStorage.setItem=(key,value)=>{if(key==='RPG File2'&&value==='second==')throw Error('quota');set(key,value);};
     await u.sandbox.PadPortSaveTransfer.transfer('import');
     assert.equal(u.local.get('RPG File1'),'original==');assert.equal(u.local.has('RPG File2'),false);
     assert.match(other.errors[0],/quota/);assert.equal(other.imported(),0);
+});
+
+test('MV import rejects conflicting plugin mappings before replacing browser saves',async()=>{
+    const t=setup(),transfer=saveTransfer(t,{'file1.rpgsave':'new=='}),storage=transfer.storage;
+    const originalPath=storage.localFilePath,originalKey=storage.webStorageKey;
+    storage.localFilePath=function(id){return id==='extra'?this.localFileDirectoryPath()+'file1.rpgsave':originalPath.call(this,id);};
+    storage.webStorageKey=function(id){return id==='extra'?'Plugin Extra':originalKey.call(this,id);};
+    t.fire('DOMContentLoaded');storage.webStorageKey('extra');
+    t.local.set('RPG File1','original==');
+    await t.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.equal(transfer.imported(),0);assert.equal(t.local.get('RPG File1'),'original==');
+    assert.match(transfer.errors[0],/Cannot map/);
+});
+
+test('MV directory import converts selected desktop slots to the current browser identity',async()=>{
+    const encode=value=>Buffer.from(value).toString('base64'),decode=value=>Buffer.from(value,'base64').toString();
+    const info=[null,{globalId:'MV',title:'Previous title',timestamp:123,characters:[['Actor',0]]},
+        {globalId:'other-runtime',title:'Uncopied slot',timestamp:456}];
+    const t=setup(),files={'file1.rpgsave':'slot==','global.rpgsave':encode(JSON.stringify(info))};
+    files['global.rpgsave.bak']=files['global.rpgsave'];
+    const transfer=saveTransfer(t,files);
+    t.sandbox.LZString={compressToBase64:encode,decompressFromBase64:decode};
+    t.sandbox.$dataSystem={gameTitle:'Current title'};t.sandbox.DataManager._globalId='MV';
+    await t.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.deepEqual(transfer.errors,[]);assert.equal(transfer.imported(),1);
+    const imported=JSON.parse(decode(t.local.get('RPG Global')));
+    assert.deepEqual(imported[1],{...info[1],globalId:'MV',title:'Current title'});
+    assert.deepEqual(imported[2],info[2]);assert.equal(t.local.get('RPG File1'),'slot==');
+    assert.equal(t.local.get('RPG Globalbak'),t.local.get('RPG Global'));
+    assert.deepEqual(JSON.parse(decode(files['global.rpgsave'])),info,'source index stays unchanged');
+});
+
+test('MV directory import validates indices and engine identifiers before writing any slots',async()=>{
+    const encode=value=>Buffer.from(value).toString('base64');
+    for(const index of ['corrupt',encode('{}'),encode('[null,42]'),
+        encode(JSON.stringify([null,{globalId:'other-engine',title:'Previous title'}]))]) {
+        const t=setup(),transfer=saveTransfer(t,{'file1.rpgsave':'new==','global.rpgsave':index});
+        t.local.set('RPG File1','keep==');t.local.set('RPG Global','keep index==');
+        await t.sandbox.PadPortSaveTransfer.transfer('import');
+        assert.equal(transfer.imported(),0);assert.equal(transfer.errors.length,1);
+        assert.equal(t.local.get('RPG File1'),'keep==');assert.equal(t.local.get('RPG Global'),'keep index==');
+    }
+});
+
+test('MV index conversion preserves absent slots and rolls back alongside slot writes',async()=>{
+    const encode=value=>Buffer.from(value).toString('base64');
+    const info=[null,{globalId:'MV',title:'Previous title'},null,
+        {globalId:'other-engine',title:'Uncopied slot'}];
+    const index=encode(JSON.stringify(info));
+    const t=setup(),transfer=saveTransfer(t,{'global.rpgsave':index,'file2.rpgsave':'slot=='});
+    await t.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.deepEqual(transfer.errors,[]);assert.equal(t.local.get('RPG Global'),index);
+    assert.equal(JSON.parse(Buffer.from(t.local.get('RPG Global'),'base64').toString())[2],null);
+    const u=setup(),failed=saveTransfer(u,{'global.rpgsave':index,'file1.rpgsave':'new=='});
+    u.local.set('RPG Global','original index==');u.local.set('RPG File1','original slot==');
+    const set=u.sandbox.localStorage.setItem;
+    u.sandbox.localStorage.setItem=(key,value)=>{if(key==='RPG File1'&&value==='new==')throw Error('quota');set(key,value);};
+    await u.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.equal(failed.imported(),0);assert.match(failed.errors[0],/quota/);
+    assert.equal(u.local.get('RPG Global'),'original index==');assert.equal(u.local.get('RPG File1'),'original slot==');
 });
 
 test('MZ directory copies use only this games forage keys and report empty or inaccessible folders',async()=>{
