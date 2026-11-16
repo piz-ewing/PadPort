@@ -149,7 +149,7 @@
     </string-array>
     <string name="import_directory_saves">Import saves from game folder</string>
     <string name="export_directory_saves">Export saves to game folder</string>
-    <string name="import_directory_details">Copy saves from this game’s save folder (usually www/save) into PadPort. Matching app saves will be replaced and the game will restart. For MV saves with a matching engine identifier, imported slot titles in the save index are adapted to the current game. Select saves from a compatible version of this game. Source files stay unchanged.</string>
+    <string name="import_directory_details">Copy saves from this game’s save folder (usually www/save) into PadPort. Matching app saves will be replaced and the game will restart. MV saves require a matching engine identifier; chapter titles are preserved and game identity is recorded separately. Select saves from a compatible version of this game. Source files stay unchanged.</string>
     <string name="export_directory_details">Copy the saves already stored by this game in PadPort to its save folder (usually www/save). Matching files will be replaced. This does not save your current unsaved progress.</string>
     <string name="directory_saves_exported">Exported %1$d save files to the game folder.</string>
 </resources>

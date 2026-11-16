@@ -5,6 +5,40 @@
     const text = window.PadPortI18n.text;
     let pending = null, sequence = 0;
 
+    function identifyMvSlot(slot) {
+        if (!slot || slot.globalId !== DataManager._globalId || Object.hasOwn(slot, 'padportGameTitle')) return slot;
+        // Legacy saves belong to the selected game's isolated browser store.
+        return {...slot, padportGameTitle: $dataSystem.gameTitle};
+    }
+    window.addEventListener('load', () => {
+        if (config.engine !== 'MV' || !window.DataManager) return;
+        const makeInfo = DataManager.makeSavefileInfo;
+        const loadInfo = DataManager.loadGlobalInfo;
+        const isGameFile = DataManager.isThisGameFile;
+        if (typeof makeInfo !== 'function' || typeof loadInfo !== 'function' || typeof isGameFile !== 'function') return;
+        let checkingIdentity = 0;
+        DataManager.makeSavefileInfo = function () {
+            const info = makeInfo.apply(this, arguments);
+            info.padportGameTitle = $dataSystem.gameTitle;
+            return info;
+        };
+        DataManager.loadGlobalInfo = function () {
+            const info = loadInfo.apply(this, arguments);
+            if (!info || !window.$dataSystem) return info;
+            return info.map(slot => {
+                const identified = identifyMvSlot(slot);
+                // MV uses title for identity; plugins may use it for chapter labels.
+                return checkingIdentity && identified && Object.hasOwn(identified, 'padportGameTitle')
+                    ? {...identified, title: identified.padportGameTitle} : identified;
+            });
+        };
+        DataManager.isThisGameFile = function () {
+            checkingIdentity++;
+            try { return isGameFile.apply(this, arguments); }
+            finally { checkingIdentity--; }
+        };
+    });
+
     function complete(id, result) {
         if (!pending || pending.id !== id) return;
         const request = pending;
@@ -109,9 +143,8 @@
                 if (typeof slot !== 'object' || Array.isArray(slot) || typeof slot.title !== 'string')
                     throw new Error(text('invalid_save_index'));
                 if (slot.globalId !== DataManager._globalId) throw new Error(text('incompatible_save_index'));
-                // Desktop MV skips the title check that browser MV applies to this metadata.
-                if (slot.title !== $dataSystem.gameTitle) {
-                    slot.title = $dataSystem.gameTitle;
+                if (slot.padportGameTitle !== $dataSystem.gameTitle) {
+                    slot.padportGameTitle = $dataSystem.gameTitle;
                     changed = true;
                 }
             }

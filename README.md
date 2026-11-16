@@ -148,12 +148,12 @@ backups, using the game’s filename and browser-key rules. Plugin slots used
 through StorageManager are discovered as the game runs; filename-based slots
 are accepted when the engine confirms their mapping. Unmapped or conflicting
 files are reported before importing.
-MV desktop saves can retain an earlier title in their global index: desktop
-MV ignores that field, while browser MV checks it. Directory import adapts the
-index titles of copied numbered slots to the current game, including index
-backups, and requires matching engine identifiers. Other index fields and slot
-payloads stay unchanged. Invalid indices fail before app saves are replaced.
-Use saves from a compatible version of the selected game; adapting metadata
+MV plugins may use save-index titles as chapter labels. PadPort preserves these
+labels and records game identity separately for newly created and imported
+saves. Existing saves in the selected game's browser storage are recognized
+without rewriting them. Directory import requires matching engine identifiers;
+invalid indices fail before app saves are replaced. Slot payloads stay unchanged.
+Use saves from a compatible version of the selected game; recording identity
 does not establish save-data compatibility.
 MZ transfers use the game’s localforage keys and `.rmmzsave` files.
 The existing JSON backup import and export remain available.

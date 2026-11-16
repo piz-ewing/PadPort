@@ -282,8 +282,80 @@ function saveTransfer(t, files = {}) {
     return {storage,calls,errors,exported,imported:()=>imported};
 }
 
+function mvSaveEngine(t, index = []) {
+    const transfer=saveTransfer(t);
+    const storage=transfer.storage;
+    storage.save=(id,value)=>t.local.set(storage.webStorageKey(id),t.sandbox.LZString.compressToBase64(value));
+    storage.load=id=>{const value=t.local.get(storage.webStorageKey(id));return value?t.sandbox.LZString.decompressFromBase64(value):null;};
+    storage.exists=id=>t.local.has(storage.webStorageKey(id));
+    const manager=t.sandbox.DataManager;
+    let cached=null;
+    manager.loadGlobalInfo=()=>cached||(cached=JSON.parse(storage.load(0)||'[]'));
+    manager.saveGlobalInfo=info=>{storage.save(0,JSON.stringify(info));cached=null;};
+    manager.makeSavefileInfo=()=>({globalId:'MV',title:'Chapter 2',timestamp:123,progress:2});
+    manager.isThisGameFile=function(id) {
+        const slot=this.loadGlobalInfo()[id];
+        return !!slot&&slot.globalId===this._globalId&&slot.title===t.sandbox.$dataSystem.gameTitle&&slot.allowed!==false;
+    };
+    manager.saveGame=function(id) {
+        storage.save(id,JSON.stringify({progress:2}));
+        const info=this.loadGlobalInfo();info[id]=this.makeSavefileInfo();this.saveGlobalInfo(info);
+        return true;
+    };
+    manager.loadGame=function(id) {return this.isThisGameFile(id)?JSON.parse(storage.load(id)):false;};
+    manager.saveGlobalInfo(index);
+    return {manager,storage,transfer,cached:()=>cached};
+}
+
+test('MV chapter saves load immediately, after restart and after directory round trips',async()=>{
+    const t=setup(),{manager,storage,transfer}=mvSaveEngine(t);t.fire('load');
+    assert.equal(manager.saveGame(3),true);
+    assert.equal(manager.loadGame(3).progress,2);
+    assert.equal(manager.loadGlobalInfo()[3].title,'Chapter 2');
+    assert.equal(JSON.parse(storage.load(0))[3].padportGameTitle,'Current title');
+    assert.equal(storage.isLocalMode(),false);
+    await t.sandbox.PadPortSaveTransfer.transfer('export');
+    const files=transfer.calls[0].files;
+    assert.equal(JSON.parse(t.sandbox.LZString.decompressFromBase64(files['global.rpgsave']))[3].title,'Chapter 2');
+    const u=setup(),fresh=mvSaveEngine(u);
+    for(const [key,value] of t.local)u.local.set(key,value);
+    fresh.manager.saveGlobalInfo(JSON.parse(storage.load(0)));u.fire('load');
+    assert.equal(fresh.manager.loadGame(3).progress,2);
+    const v=setup(),imported=mvSaveEngine(v);
+    v.sandbox.PadPortHost.directoryTransfer=(json,id)=>v.sandbox.PadPortSaveTransfer.complete(id,{ok:true,value:files});
+    v.fire('load');await v.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.deepEqual(imported.transfer.errors,[]);
+    assert.equal(imported.manager.loadGame(3).progress,2);
+    assert.equal(imported.manager.loadGlobalInfo()[3].title,'Chapter 2');
+});
+
+test('MV legacy chapter metadata retains labels and cached data during identity checks',()=>{
+    const info=[null,{globalId:'MV',title:'Chapter 1'},{globalId:'MV',title:'Chapter 2'}];
+    const t=setup(),{manager,storage,cached}=mvSaveEngine(t,info);t.fire('load');
+    storage.save(1,'{}');storage.save(2,'{}');
+    assert.equal(manager.isThisGameFile(1),true);assert.equal(manager.isThisGameFile(2),true);
+    assert.equal(cached()[1].title,'Chapter 1');
+    assert.equal(Object.hasOwn(cached()[1],'padportGameTitle'),false);
+    assert.equal(manager.loadGlobalInfo()[2].title,'Chapter 2');
+    assert.deepEqual(JSON.parse(storage.load(0)),info,'legacy migration stays in memory until the next normal save');
+});
+
+test('MV save identity preserves engine checks, plugin vetoes and explicit foreign identities',()=>{
+    const info=[null,{globalId:'other',title:'Chapter 2'},
+        {globalId:'MV',title:'Chapter 2',padportGameTitle:'Another game'},
+        {globalId:'MV',title:'Chapter 2',allowed:false},
+        {globalId:'MV',title:'Chapter 2',padportGameTitle:null}];
+    const t=setup(),{manager}=mvSaveEngine(t,info);
+    const original=manager.isThisGameFile;
+    manager.isThisGameFile=function(id){if(id===9){this.loadGlobalInfo();throw Error('plugin failure');}return original.apply(this,arguments);};
+    t.fire('load');
+    for(const id of [0,1,2,3,4,8])assert.equal(manager.isThisGameFile(id),false);
+    assert.throws(()=>manager.isThisGameFile(9),/plugin failure/);
+    assert.equal(manager.loadGlobalInfo()[2].title,'Chapter 2');
+});
+
 test('manual MV copies preserve browser mode, source files, backup keys and untouched slots',async()=>{
-    const index=Buffer.from(JSON.stringify([null,{globalId:'MV',title:'Current title'}])).toString('base64');
+    const index=Buffer.from(JSON.stringify([null,{globalId:'MV',title:'Current title',padportGameTitle:'Current title'}])).toString('base64');
     const t=setup(),files={'File1.RPGSAVE':'slot==','global.rpgsave':index,'config.rpgsave':'config==','file1.rpgsave.bak':'old=='};
     const transfer=saveTransfer(t,files);
     t.fire('DOMContentLoaded');const original={...transfer.storage};
@@ -351,7 +423,7 @@ test('MV import rejects conflicting plugin mappings before replacing browser sav
     assert.match(transfer.errors[0],/Cannot map/);
 });
 
-test('MV directory import converts selected desktop slots to the current browser identity',async()=>{
+test('MV directory import records identity while preserving selected desktop chapter titles',async()=>{
     const encode=value=>Buffer.from(value).toString('base64'),decode=value=>Buffer.from(value,'base64').toString();
     const info=[null,{globalId:'MV',title:'Previous title',timestamp:123,characters:[['Actor',0]]},
         {globalId:'other-runtime',title:'Uncopied slot',timestamp:456}];
@@ -363,7 +435,7 @@ test('MV directory import converts selected desktop slots to the current browser
     await t.sandbox.PadPortSaveTransfer.transfer('import');
     assert.deepEqual(transfer.errors,[]);assert.equal(transfer.imported(),1);
     const imported=JSON.parse(decode(t.local.get('RPG Global')));
-    assert.deepEqual(imported[1],{...info[1],globalId:'MV',title:'Current title'});
+    assert.deepEqual(imported[1],{...info[1],padportGameTitle:'Current title'});
     assert.deepEqual(imported[2],info[2]);assert.equal(t.local.get('RPG File1'),'slot==');
     assert.equal(t.local.get('RPG Globalbak'),t.local.get('RPG Global'));
     assert.deepEqual(JSON.parse(decode(files['global.rpgsave'])),info,'source index stays unchanged');
