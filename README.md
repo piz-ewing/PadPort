@@ -1,3 +1,5 @@
+[简体中文](README.zh-CN.md)
+
 # PadPort
 
 ![PadPort — Play your RPG Maker games on Android.](docs/banner.jpg)
