@@ -3,7 +3,7 @@
 //   ELDERFIELD_GAME="F:\DepotDownloaderMod\Welcome to Elderfield" node --test tests/game-compat.test.cjs
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const assets=path.join(__dirname,'../app/src/main/assets');
-const source=['ui-strings.js','bridge.js','game-compat.js'].map(n=>fs.readFileSync(path.join(assets,n),'utf8')).join('\n');
+const source=['node-buffer.js','ui-strings.js','bridge.js','game-compat.js'].map(n=>fs.readFileSync(path.join(assets,n),'utf8')).join('\n');
 const GAME=process.env.ELDERFIELD_GAME;
 
 function setup(config={},files={}) {

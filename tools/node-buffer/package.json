@@ -1,0 +1,1 @@
+{"private":true,"scripts":{"build":"esbuild node_modules/buffer/index.js --bundle --platform=browser --format=iife --global-name=PadPortBuffer --minify --legal-comments=inline --outfile=../../app/src/main/assets/node-buffer.js"},"devDependencies":{"buffer":"6.0.3","esbuild":"0.25.0"}}

@@ -12,6 +12,7 @@ import java.util.function.Consumer;
 final class GameWebClient extends WebViewClient {
     final Context context;
     final GameSource source;
+    final GameMarkers gameMarkers;
     final String origin;
     final Consumer<String> log;
     Runnable loaded=()->{};
@@ -22,8 +23,8 @@ final class GameWebClient extends WebViewClient {
         gone.accept(detail.didCrash());
         return true;
     }
-    GameWebClient(Context c,GameSource s,Consumer<String> log) {
-        context=c;source=s;origin=s==null?"https://tester.padport.local":s.origin();this.log=log;
+    GameWebClient(Context c,GameSource s,GameMarkers saves,Consumer<String> log) {
+        context=c;source=s;gameMarkers=saves;origin=s==null?"https://tester.padport.local":s.origin();this.log=log;
     }
     private WebResourceResponse bytes(String mime,byte[] bytes) {
         return response(mime,200,"OK",new ByteArrayInputStream(bytes),Map.of("Cache-Control","no-store","Content-Length",String.valueOf(bytes.length)));
@@ -54,12 +55,18 @@ final class GameWebClient extends WebViewClient {
         catch(Exception e) {return error(403,"Invalid path",url);}
         if(path.isEmpty()) path="index.html";
         try {
+            if(path.equals("__padport__/marker-stat") && gameMarkers!=null) {
+                if(!"GET".equals(request.getMethod())) return error(405,"Method Not Allowed",path);
+                String query=new JSONObject().put("op","marker-stat").put("path",uri.getQueryParameter("path")).toString();
+                return bytes("application/json",gameMarkers.execute(query).getBytes(StandardCharsets.UTF_8));
+            }
             if(path.equals("__padport__/bridge.js")) {
                 JSONObject config=new JSONObject().put("title",source==null?context.getString(R.string.controller_tester):source.title)
                     .put("engine",source==null?"diagnostics":source.engine).put("language",AppLanguage.code(context))
                     .put("dualScreenProfile",source==null?"":DualScreenProfile.identify(source.title,source.engine));
                 GameCompat.config(config,source);
                 return bytes("application/javascript",("window.__PADPORT_CONFIG__="+config+";\n"+
+                    new String(asset("node-buffer.js"),StandardCharsets.UTF_8)+"\n"+
                     new String(asset("ui-strings.js"),StandardCharsets.UTF_8)+"\n"+new String(asset("bridge.js"),StandardCharsets.UTF_8)+"\n"+
                     new String(asset("game-compat.js"),StandardCharsets.UTF_8)+"\n"+
                     new String(asset("look-outside-dual.js"),StandardCharsets.UTF_8)+"\n"+

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
-const source = ['ui-strings.js','bridge.js'].map(name=>fs.readFileSync(path.join(__dirname, '../app/src/main/assets',name), 'utf8')).join('\n');
+const source = ['node-buffer.js','ui-strings.js','bridge.js'].map(name=>fs.readFileSync(path.join(__dirname, '../app/src/main/assets',name), 'utf8')).join('\n');
 
 // Game files as the PadPort server serves them: case-insensitive, 404 when missing.
 function fakeServer(files) {
@@ -38,7 +38,7 @@ function setup(language, files={}) {
     // Gecko-like fullscreen API: requests outside a user gesture reject.
     class Element { mozRequestFullScreen(){ return Promise.reject(new TypeError('Fullscreen request denied')); } }
     class Document { mozCancelFullScreen(){ return Promise.reject(new TypeError('Not in fullscreen')); } }
-    const sandbox={console, Element, Document, Event:class Event{constructor(type){this.type=type;}}, Blob, ArrayBuffer, Uint8Array, URL, setTimeout,
+    const sandbox={console, Element, Document, Event:class Event{constructor(type){this.type=type;}}, Blob, ArrayBuffer, Uint8Array, URL, AbortController, setTimeout, clearTimeout,
         XMLHttpRequest:server.XMLHttpRequest, document:{baseURI:'https://g1.padport.local/index.html'},
         performance:{now:()=>42}, navigator:{}, __PADPORT_CONFIG__:{title:'Test Game',engine:'MZ',language},
         localStorage:{get length(){return local.size;}, key:i=>[...local.keys()][i],getItem:k=>local.get(k)??null,
@@ -115,12 +115,113 @@ test('fs: case-insensitive names, stat, text and binary reads, encoded paths, no
     assert.ok(t.requests.some(r=>r.endsWith('/img/pictures/a%20b%231.png')));
     assert.throws(()=>fs.readFileSync('missing.png'),e=>e.code==='ENOENT');
 });
-test('fs refuses writes with a localized message; saves stay in browser storage',()=>{
+test('resource fs refuses writes with a localized message',()=>{
     const en=setup('en'),pl=setup('pl');
     assert.throws(()=>en.sandbox.require('fs').writeFileSync('save/file1.rmmzsave','x'),/read-only/);
     assert.throws(()=>pl.sandbox.require('fs').mkdirSync('save'),/tylko do odczytu/);
     assert.equal(typeof en.sandbox.process,'undefined');
 });
+
+test('Node Buffer preserves UTF-8, base64, typed-array and module semantics',()=>{
+    const t=setup('zh',{'img/test.png':[0,127,128,255]}), B=t.sandbox.Buffer;
+    assert.equal(B.from('cGx1Z2luLW1hcmtlcg==','base64').toString('utf8'),'plugin-marker');
+    const value='存档测试 · 😀';
+    assert.equal(B.from(B.from(value).toString('base64'),'base64').toString('utf8'),value);
+    assert.equal(t.sandbox.require('node:buffer').Buffer,B);
+    const bytes=t.sandbox.require('fs').readFileSync('img/test.png');
+    assert.equal(B.isBuffer(bytes),true);
+    assert.equal(bytes.toString('hex'),'007f80ff');
+});
+
+test('load-event marker creation persists, propagates failures and never bypasses resource protection',()=>{
+    const t=setup(), files=new Map(), calls=[];
+    t.sandbox.PadPortHost.markerFile=request=>{
+        const {op,path,value}=JSON.parse(request);calls.push({op,path,value});
+        if(op==='marker-stat')return JSON.stringify({ok:true,value:{exists:files.has(path),size:0}});
+        if(op==='marker-read')return JSON.stringify({ok:true,value:Buffer.from(files.get(path)).toString('base64')});
+        if(op==='marker-open'){
+            if(path==='denied')return JSON.stringify({ok:false,code:'EACCES',error:'permission denied'});
+            if(files.has(path)&&value==='wx')return JSON.stringify({ok:false,code:'EEXIST',error:'exists'});
+            files.set(path,'');return JSON.stringify({ok:true,value:true});
+        }
+        throw Error(op);
+    };
+    const script='const fs=require("fs"), name=Buffer.from("cGx1Z2luLW1hcmtlcg==","base64").toString("utf8"); if(fs.existsSync(name)) fs.statSync(name); else fs.closeSync(fs.openSync(name,"wx"));';
+    vm.runInContext('{'+script+'}',t.sandbox);
+    vm.runInContext('{'+script+'}',t.sandbox);
+    assert.equal(files.get('plugin-marker'),'');
+    assert.equal(calls.filter(c=>c.op==='marker-open').length,1);
+    const f=t.sandbox.require('fs');
+    assert.equal(f.statSync('./plugin-marker').isFile(),true);
+    assert.equal(f.readFileSync('plugin-marker','utf8'),'');
+    const fd=f.openSync('secondMarker','wx');f.closeSync(fd);
+    assert.throws(()=>f.closeSync(fd),e=>e.code==='EBADF');
+    assert.throws(()=>f.openSync('secondMarker','wx'),e=>e.code==='EEXIST');
+    assert.throws(()=>f.openSync('denied','w'),e=>e.code==='EACCES');
+    for(const path of ['../escape','/absolute','C:\\file','data/System.json','.hidden','index.html'])
+        assert.throws(()=>f.openSync(path,'w'),e=>e.code==='EACCES');
+    assert.throws(()=>f.openSync('marker','a'),e=>e.code==='EACCES');
+});
+test('marker checks reuse metadata across frames and refresh asynchronously without losing newer writes',async()=>{
+    const t=setup(), files=new Map([['marker','']]);
+    let now=0, sync=0, fail=false;const pending=[];
+    t.sandbox.performance.now=()=>now;
+    t.sandbox.PadPortHost.markerFile=request=>{
+        const {op,path}=JSON.parse(request);sync++;
+        if(op==='marker-stat')return JSON.stringify({ok:true,value:{exists:files.has(path),size:0}});
+        if(op==='marker-open'){files.set(path,'');return JSON.stringify({ok:true,value:true});}
+        throw Error(op);
+    };
+    t.sandbox.fetch=(url,options)=>{
+        assert.equal(new URL(url).pathname,'/__padport__/marker-stat');
+        assert.equal(new URL(url).searchParams.get('path'),'marker');
+        assert.equal(options.cache,'no-store');
+        const result=fail?{ok:false,code:'EACCES',error:'denied'}
+            :{ok:true,value:{exists:files.has('marker'),size:0}};
+        return new Promise(resolve=>pending.push(()=>resolve({ok:true,json:async()=>result})));
+    };
+    const flush=()=>new Promise(resolve=>setImmediate(resolve)),f=t.sandbox.require('fs');
+    assert.equal(f.existsSync('marker'),true);
+    for(let frame=0;frame<60;frame++){now=frame*16;assert.equal(f.existsSync('./marker'),true);}
+    assert.equal(sync,1,'one native stat, rather than one per frame');
+    now=1001;files.delete('marker');
+    for(let frame=0;frame<100;frame++)assert.equal(f.existsSync('marker'),true);
+    assert.equal(pending.length,1,'only one background refresh may be in flight');
+    assert.equal(sync,1);pending.shift()();await flush();
+    assert.equal(f.existsSync('marker'),false,'external deletion becomes visible');
+    now=2002;f.existsSync('marker');
+    f.closeSync(f.openSync('marker','w'));pending.shift()();await flush();
+    assert.equal(f.existsSync('marker'),true,'old missing result cannot overwrite a completed create');
+    assert.equal(f.existsSync('MARKER'),true,'case-insensitive checks share the cached metadata');
+    now=3003;fail=true;f.existsSync('marker');pending.shift()();await flush();
+    assert.throws(()=>f.existsSync('marker'),e=>e.code==='EACCES');
+    fail=false;now=4004;assert.throws(()=>f.existsSync('marker'),e=>e.code==='EACCES');
+    pending.shift()();await flush();assert.equal(f.existsSync('marker'),true);
+    t.sandbox.PadPort.resume();f.existsSync('marker');
+    assert.equal(pending.length,1,'resume refreshes external edits without blocking a frame');
+    pending.shift()();await flush();
+});
+
+test('a stalled marker refresh times out and a later check can refresh again',async()=>{
+    const t=setup();let now=0,attempts=0,expire;const timers=new Set();
+    t.sandbox.performance.now=()=>now;
+    t.sandbox.PadPortHost.markerFile=()=>JSON.stringify({ok:true,value:{exists:true,size:0}});
+    t.sandbox.setTimeout=(callback,delay)=>{assert.equal(delay,5000);expire=callback;timers.add(callback);return callback;};
+    t.sandbox.clearTimeout=timer=>timers.delete(timer);
+    t.sandbox.fetch=(url,{signal})=>{
+        attempts++;
+        if(attempts===1)return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}));
+        return Promise.resolve({ok:true,json:async()=>({ok:true,value:{exists:false,size:0}})});
+    };
+    const flush=()=>new Promise(resolve=>setImmediate(resolve)),f=t.sandbox.require('fs');
+    assert.equal(f.existsSync('marker'),true);now=1001;f.existsSync('marker');
+    now=6001;expire();await flush();
+    assert.equal(timers.size,0);assert.throws(()=>f.existsSync('marker'),e=>e.name==='AbortError');
+    now=7002;assert.throws(()=>f.existsSync('marker'),e=>e.name==='AbortError');
+    await flush();assert.equal(f.existsSync('marker'),false);
+    assert.equal(attempts,2);assert.equal(timers.size,0);
+});
+
 test('path helpers used next to fs',()=>{
     const p=setup().sandbox.require('path');
     assert.equal(p.join('img/','enemies','a.png'),'img/enemies/a.png');

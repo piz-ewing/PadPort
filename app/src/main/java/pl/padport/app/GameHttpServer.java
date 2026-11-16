@@ -24,6 +24,7 @@ final class GameHttpServer implements Closeable {
     private static final String IDLE = "{\"revision\":0,\"paused\":false,\"pads\":[]}";
     private final Context context;
     private final GameSource source;
+    private final GameMarkers gameMarkers;
     private final Consumer<String> log;
     private final ServerSocket socket;
     private final String token;
@@ -40,6 +41,7 @@ final class GameHttpServer implements Closeable {
 
     GameHttpServer(Context context, GameSource source, Consumer<String> log) throws IOException {
         this.context = context; this.source = source; this.log = log;
+        gameMarkers = new GameMarkers(source);
         byte[] random = new byte[16];
         new SecureRandom().nextBytes(random);
         StringBuilder t = new StringBuilder("t");
@@ -206,6 +208,20 @@ final class GameHttpServer implements Closeable {
         if (path.isEmpty()) path = "index.html";
         try {
             switch (path) {
+                case "__padport__/marker-stat":
+                    if (!"GET".equals(r.method)) { error(out, r, 405, "Method Not Allowed"); return true; }
+                    String markerRequest = new JSONObject().put("op", "marker-stat")
+                        .put("path", android.net.Uri.parse(r.path).getQueryParameter("path")).toString();
+                    bytes(out, r, "application/json; charset=utf-8",
+                        gameMarkers.execute(markerRequest).getBytes(StandardCharsets.UTF_8));
+                    return true;
+                case "__padport__/marker-file":
+                    if (!"POST".equals(r.method) || !origin().equals(r.headers.get("origin"))) {
+                        error(out, r, 403, "Forbidden"); return true;
+                    }
+                    bytes(out, r, "application/json; charset=utf-8",
+                        gameMarkers.execute(new String(r.body, StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
+                    return true;
                 case "__padport__/dual-poll": bytes(out,r,"application/json",dualPoll.get().getBytes(StandardCharsets.UTF_8));return true;
                 case "__padport__/dual-snapshot": dualSnapshot.accept(new String(r.body,StandardCharsets.UTF_8));bytes(out,r,"text/plain",new byte[0]);return true;
                 case "__padport__/events": return events(out);
@@ -219,6 +235,7 @@ final class GameHttpServer implements Closeable {
                         .put("dualScreenProfile",DualScreenProfile.identify(source.title,source.engine));
                     GameCompat.config(config,source);
                     String js = "window.__PADPORT_CONFIG__=" + config + ";\n" + new String(asset("gecko-host.js"), StandardCharsets.UTF_8) + "\n"
+                        + new String(asset("node-buffer.js"), StandardCharsets.UTF_8) + "\n"
                         + new String(asset("ui-strings.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("bridge.js"), StandardCharsets.UTF_8)
                         + "\n" + new String(asset("game-compat.js"),StandardCharsets.UTF_8)
                         + "\n" + new String(asset("look-outside-dual.js"),StandardCharsets.UTF_8)

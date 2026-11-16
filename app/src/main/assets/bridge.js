@@ -109,8 +109,63 @@
     // from the same PadPort origin as everything else (synchronous XHR, like the
     // blocking fs calls it replaces), matched case-insensitively like NW.js on
     // Windows. Results are cached - game files do not change during a session.
-    // Writing is refused: saves stay in browser storage (no process / nw below).
+    // Extensionless root markers have live, bounded access through the native
+    // channel; other game resources stay read-only.
     const fileProbe = new Map();
+    const markerStats = new Map();
+    const markerHandles = new Set();
+    let nextMarkerHandle = 3;
+    function markerPath(file) {
+        const path = String(file).replace(/^(?:\.\/)+/, '');
+        return path && path.length <= 200 && !/[.\\/\x00-\x1f:*?"<>|]/.test(path) && path.trim() ? path : null;
+    }
+    function markerFile(op, path, value) {
+        if (!host || !host.markerFile) throw fsError('ENOSYS', op, path);
+        const result = JSON.parse(host.markerFile(JSON.stringify({op: 'marker-' + op, path, value})));
+        if (!result.ok) throw fsError(result.code || 'EIO', op, path);
+        return result.value;
+    }
+    function markerStat(path) {
+        const key = path.toLowerCase();
+        let cached = markerStats.get(key);
+        if (!cached) {
+            cached = {value: markerFile('stat', path), checkedAt: performance.now(), pending: false, error: null};
+            markerStats.set(key, cached);
+        }
+        if (!cached.pending && performance.now() - cached.checkedAt >= 1000) {
+            cached.pending = true;
+            const url = new URL('__padport__/marker-stat', document.baseURI);
+            url.searchParams.set('path', path);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            // Parallel events can check this every frame. Refresh outside the frame loop.
+            fetch(url.href, {cache: 'no-store', signal: controller.signal}).then(response => {
+                if (!response.ok) throw fsError('EIO', 'stat', path);
+                return response.json();
+            }).then(result => {
+                if (!result.ok) throw fsError(result.code || 'EIO', 'stat', path);
+                cached.value = result.value;
+                cached.error = null;
+            }).catch(error => { cached.error = error; log('fs stat ' + path + ': ' + error.message); })
+                .finally(() => { clearTimeout(timeout); cached.checkedAt = performance.now(); cached.pending = false; });
+        }
+        if (cached.error) throw cached.error;
+        return cached.value;
+    }
+    function openSync(file, flags) {
+        const path = markerPath(file);
+        if (!path || (flags !== 'w' && flags !== 'wx')) throw fsError('EACCES', 'open', file);
+        if (markerHandles.size >= 256) throw fsError('EMFILE', 'open', file);
+        markerFile('open', path, flags);
+        // Replace the entry so an older in-flight refresh cannot undo this write.
+        markerStats.set(path.toLowerCase(), {value: {exists: true, size: 0, directory: false},
+            checkedAt: performance.now(), pending: false, error: null});
+        fileProbe.delete(gameUrl(file));
+        // No native descriptor stays open: this shim only supports empty markers.
+        const fd = nextMarkerHandle++;
+        markerHandles.add(fd);
+        return fd;
+    }
     function fsError(code, op, file) {
         const e = new Error(code + ': ' + op + " '" + file + "'");
         e.code = code; e.syscall = op; e.path = String(file);
@@ -122,6 +177,8 @@
         return new URL(rel, document.baseURI).href;
     }
     function probe(file) {
+        const marker = markerPath(file);
+        if (marker && host && host.markerFile) return markerStat(marker);
         const url = gameUrl(file);
         if (fileProbe.has(url)) return fileProbe.get(url);
         let found = {exists: false, size: 0};
@@ -136,6 +193,11 @@
     }
     function readFileSync(file, options) {
         const encoding = typeof options === 'string' ? options : options && options.encoding;
+        const marker = markerPath(file);
+        if (marker && host && host.markerFile) {
+            const bytes = PadPortBuffer.Buffer.from(markerFile('read', marker), 'base64');
+            return encoding ? bytes.toString(encoding) : bytes;
+        }
         const x = new XMLHttpRequest();
         x.open('GET', gameUrl(file), false);
         if (!encoding) x.overrideMimeType('text/plain; charset=x-user-defined');   // raw bytes
@@ -144,13 +206,13 @@
         if (encoding) return x.responseText;
         const s = x.responseText, bytes = new Uint8Array(s.length);
         for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i) & 0xff;
-        return bytes;
+        return PadPortBuffer.Buffer.from(bytes);
     }
     function stat(file) {
         const found = probe(file);
         if (!found.exists) throw fsError('ENOENT', 'stat', file);
         return {size: found.size, mtime: new Date(0), mtimeMs: 0,
-                isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false};
+                isFile: () => !found.directory, isDirectory: () => Boolean(found.directory), isSymbolicLink: () => false};
     }
     const readOnly = op => file => { throw new Error(text('node_fs_readonly', op + ' ' + file)); };
     const later = (cb, fn) => setTimeout(() => { let v, err = null; try { v = fn(); } catch (e) { err = e; } if (cb) cb(err, v); }, 0);
@@ -163,6 +225,8 @@
         },
         lstatSync: file => stat(file),
         readFileSync,
+        openSync,
+        closeSync: fd => { if (!markerHandles.delete(fd)) throw fsError('EBADF', 'close', fd); },
         exists: (file, cb) => setTimeout(() => cb && cb(probe(file).exists), 0),
         stat: (file, cb) => later(cb, () => stat(file)),
         readFile: (file, opts, cb) => {
@@ -186,11 +250,13 @@
     // Some games treat any require() as NW.js and then read process at load time
     // (e.g. Cyclone-Steam); GameCompat turns the shim off for them (nodeShim: false).
     if (config.nodeShim !== false && typeof window.require === 'undefined') {
+        if (typeof window.Buffer === 'undefined') window.Buffer = PadPortBuffer.Buffer;
         window.require = function (module) {
             const name = String(module).replace(/^node:/, '');
             if (name === 'os') return {userInfo: () => ({username: config.playerName || 'Player'})};
             if (name === 'fs') return nodeFs;
             if (name === 'path') return nodePath;
+            if (name === 'buffer') return PadPortBuffer;
             throw new Error(text('node_module', module));
         };
     }
@@ -220,6 +286,7 @@
         if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
     }
     function resume() {
+        for (const cached of markerStats.values()) cached.checkedAt = -Infinity;
         clearInput();
         fitToViewport();
         if (engineStopped && window.SceneManager && typeof SceneManager.resume === 'function') {

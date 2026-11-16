@@ -21,6 +21,14 @@
         }
     });
     window.PadPortHost = {
+        markerFile: request => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '__padport__/marker-file', false);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(request);
+            if (xhr.status !== 200) throw new Error('Save file request failed: ' + xhr.status);
+            return xhr.responseText;
+        },
         dualPoll: () => fetch('__padport__/dual-poll',{cache:'no-store'}).then(r=>r.text()),
         dualSnapshot: payload => post('dual-snapshot',payload),
         snapshot: () => snapshot,

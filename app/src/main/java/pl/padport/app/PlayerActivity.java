@@ -28,6 +28,7 @@ public class PlayerActivity extends LocalizedActivity {
     private KeyboardDispatcher keyboard;
     private boolean webReady;
     private GameSource source;
+    private GameMarkers gameMarkers;
     private volatile DualScreenSession dualScreen;
     private FrameLayout root;
     private AlertDialog menu;
@@ -67,7 +68,7 @@ public class PlayerActivity extends LocalizedActivity {
         if(keyboard!=null)keyboard.clear();webReady=false;
         if(dualScreen!=null){dualScreen.close();dualScreen=null;}
         if(game!=null&&!DualScreenProfile.identify(game.title,game.engine).isEmpty())dualScreen=new DualScreenSession(this,game);
-        source=game;root.removeAllViews();web=new WebView(this);
+        source=game;gameMarkers=game==null?null:new GameMarkers(game);root.removeAllViews();web=new WebView(this);
         keyboard=new KeyboardDispatcher(event->{if(web!=null)web.dispatchKeyEvent(event);});
         web.setBackgroundColor(Color.BLACK);web.setFocusableInTouchMode(true);
         WebSettings settings=web.getSettings();
@@ -77,7 +78,7 @@ public class PlayerActivity extends LocalizedActivity {
         settings.setBuiltInZoomControls(false);settings.setSupportZoom(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         if((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0) WebView.setWebContentsDebuggingEnabled(true);
         web.addJavascriptInterface(new Host(),"PadPortHost");
-        GameWebClient client=new GameWebClient(this,source,this::log);
+        GameWebClient client=new GameWebClient(this,source,gameMarkers,this::log);
         client.loaded=()->{webReady=true;if(foreground && menu==null)resumeGame();};
         client.gone=this::renderGone;
         web.setWebViewClient(client);
@@ -170,6 +171,10 @@ public class PlayerActivity extends LocalizedActivity {
     }
     private void error(String message){log(message);new AlertDialog.Builder(this).setTitle(R.string.app_name).setMessage(message).setPositiveButton(R.string.ok,null).show();}
     public final class Host {
+        @JavascriptInterface public String markerFile(String request){
+            GameMarkers current=gameMarkers;
+            return current==null?"{\"ok\":false,\"error\":\"No game is open\"}":current.execute(request);
+        }
         @JavascriptInterface public String dualPoll(){DualScreenSession current=dualScreen;return current==null?"{\"active\":false}":current.channel.poll();}
         @JavascriptInterface public void dualSnapshot(String json){DualScreenSession current=dualScreen;if(current!=null)current.snapshot(json);}
         @JavascriptInterface public String snapshot(){return controllers.snapshot();}
