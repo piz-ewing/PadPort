@@ -114,6 +114,9 @@ public class GeckoPlayerActivity extends LocalizedActivity {
                 session.reload();
             }
         });
+        server.directoryExported = count -> runOnUiThread(() -> {
+            if (!isDestroyed()) Toast.makeText(this, getString(R.string.directory_saves_exported, count), Toast.LENGTH_LONG).show();
+        });
         server.saveError = message -> { exporting = false; runOnUiThread(() -> { if (!isDestroyed()) error(message); }); };
         controllers.onChange = () -> { server.publish(controllers.snapshot()); updateKeyboard(); };
         server.publish(controllers.snapshot());
@@ -339,7 +342,7 @@ public class GeckoPlayerActivity extends LocalizedActivity {
         if (menu != null || source == null || session == null) return;
         pauseGame();
         String[] items = {getString(R.string.back_to_game), getString(R.string.controller_mapping), getString(R.string.export_saves),
-            getString(R.string.import_saves), getString(R.string.diagnostics_copy_log), getString(R.string.back_to_library)};
+            getString(R.string.import_saves), getString(R.string.import_directory_saves), getString(R.string.export_directory_saves), getString(R.string.diagnostics_copy_log), getString(R.string.back_to_library)};
         LinearLayout settings = Ui.column(this);
         settings.addView(VirtualControllerSettings.checkbox(this, enabled -> refreshVirtualController()));
         settings.addView(DisplayRate.checkbox(this));
@@ -351,11 +354,19 @@ public class GeckoPlayerActivity extends LocalizedActivity {
                 Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE);
                 startActivityForResult(i, IMPORT);
             }
-            else if (n == 4) showLog();
-            else if (n == 5) finish();
+            else if (n == 4 || n == 5) confirmDirectoryTransfer(n == 5);
+            else if (n == 6) showLog();
+            else if (n == 7) finish();
         });
         menu.setOnDismissListener(d -> { menu = null; if (foreground && !isFinishing()) resumeGame(); });
         menu.show();
+    }
+
+    private void confirmDirectoryTransfer(boolean exporting) {
+        new AlertDialog.Builder(this).setTitle(exporting ? R.string.export_directory_saves : R.string.import_directory_saves)
+            .setMessage(exporting ? R.string.export_directory_details : R.string.import_directory_details)
+            .setPositiveButton(R.string.ok, (d,n) -> {if(server!=null)server.command(exporting ? "exportDirectorySaves" : "importDirectorySaves");})
+            .setNegativeButton(R.string.cancel, null).show();
     }
 
     /** gecko-host.js posted the collected saves (HTTP thread). */

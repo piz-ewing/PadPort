@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
-const source = ['node-buffer.js','ui-strings.js','bridge.js'].map(name=>fs.readFileSync(path.join(__dirname, '../app/src/main/assets',name), 'utf8')).join('\n');
+const source = ['node-buffer.js','ui-strings.js','bridge.js','save-transfer.js'].map(name=>fs.readFileSync(path.join(__dirname, '../app/src/main/assets',name), 'utf8')).join('\n');
 
 // Game files as the PadPort server serves them: case-insensitive, 404 when missing.
 function fakeServer(files) {
@@ -259,6 +259,87 @@ test('a failed import restores the slots already written',async()=>{
     t.sandbox.localforage.setItem=async(k,v)=>{if(v==='FAIL')throw Error('disk');return save(k,v);};
     await assert.rejects(t.sandbox.PadPort.importSaves({format:'PadPort saves',version:1,title:'Test Game',engine:'MZ',local:{slot:'new'},forage:{slot:'FAIL'}}));
     assert.equal(t.local.get('slot'),'original');assert.equal(t.forage.get('slot'),'old');
+});
+
+function saveTransfer(t, files = {}) {
+    const calls=[], errors=[], exported=[];let imported=0;
+    t.sandbox.__PADPORT_CONFIG__.engine='MV';
+    const storage={isLocalMode:()=>false,localFileDirectoryPath:()=>{throw Error('NW.js path must stay unused');},
+        localFilePath(id){return this.localFileDirectoryPath()+(id<0?'config':id===0?'global':`file${id}`)+'.rpgsave';},
+        webStorageKey:id=>id<0?'RPG Config':id===0?'RPG Global':`RPG File${id}`};
+    t.sandbox.StorageManager=storage;t.sandbox.DataManager={maxSavefiles:()=>4};
+    t.sandbox.PadPortHost.directoryTransfer=(json,id)=>{
+        const request=JSON.parse(json);calls.push(request);
+        const response=request.op==='import'?{ok:true,value:files}:{ok:true,value:Object.keys(request.files).length};
+        t.sandbox.PadPortSaveTransfer.complete(id,response);
+    };
+    t.sandbox.PadPortHost.saveError=error=>errors.push(error);
+    t.sandbox.PadPortHost.importReady=()=>imported++;
+    t.sandbox.PadPortHost.directoryExportReady=count=>exported.push(count);
+    return {storage,calls,errors,exported,imported:()=>imported};
+}
+
+test('manual MV copies preserve browser mode, source files, backup keys and untouched slots',async()=>{
+    const t=setup(),files={'File1.RPGSAVE':'slot==','global.rpgsave':'global==','config.rpgsave':'config==','file1.rpgsave.bak':'old=='};
+    const transfer=saveTransfer(t,files),original={...transfer.storage};
+    t.local.set('RPG File2','keep==');
+    await t.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.equal(transfer.imported(),1);assert.deepEqual(transfer.errors,[]);
+    assert.equal(t.local.get('RPG File1'),'slot==');assert.equal(t.local.get('RPG File1bak'),'old==');
+    assert.equal(t.local.get('RPG Global'),'global==');assert.equal(t.local.get('RPG Config'),'config==');
+    assert.equal(t.local.get('RPG File2'),'keep==');assert.deepEqual(files,{'File1.RPGSAVE':'slot==','global.rpgsave':'global==','config.rpgsave':'config==','file1.rpgsave.bak':'old=='});
+    assert.deepEqual(transfer.storage,original);assert.equal(transfer.storage.isLocalMode(),false);
+    t.local.set('RPG File1','new==');
+    await t.sandbox.PadPortSaveTransfer.transfer('export');
+    assert.equal(transfer.calls[1].files['file1.rpgsave'],'new==');
+    assert.equal(transfer.calls[1].files['file2.rpgsave'],'keep==');
+    assert.deepEqual(transfer.exported,[5]);
+    assert.deepEqual((await t.sandbox.PadPort.collectSaves()).local['RPG File1'],'new==');
+    assert.equal(transfer.calls.length,2,'JSON backup and normal storage never access the game folder');
+});
+
+test('MV manual import reports unsupported files before writes and rolls back quota failures',async()=>{
+    const t=setup(),transfer=saveTransfer(t,{'file1.rpgsave':'new==','achievements.rpgsave':'plugin=='});
+    t.local.set('RPG File1','original==');
+    await t.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.equal(t.local.get('RPG File1'),'original==');assert.equal(transfer.imported(),0);
+    assert.match(transfer.errors[0],/achievements/);
+    const u=setup(),other=saveTransfer(u,{'file1.rpgsave':'new==','file2.rpgsave':'second=='});
+    u.local.set('RPG File1','original==');const set=u.sandbox.localStorage.setItem;
+    u.sandbox.localStorage.setItem=(key,value)=>{if(key==='RPG File2'&&value==='second==')throw Error('quota');set(key,value);};
+    await u.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.equal(u.local.get('RPG File1'),'original==');assert.equal(u.local.has('RPG File2'),false);
+    assert.match(other.errors[0],/quota/);assert.equal(other.imported(),0);
+});
+
+test('MZ directory copies use only this games forage keys and report empty or inaccessible folders',async()=>{
+    const t=setup(),transfer=saveTransfer(t,{'file1.rmmzsave':'zipped==','global.rmmzsave':'metadata=='});
+    t.sandbox.__PADPORT_CONFIG__.engine='MZ';
+    t.sandbox.StorageManager={forageKey:name=>'rmmzsave.12.'+name,forageTestKey:()=>'rmmzsave.test'};
+    t.forage.set('rmmzsave.99.file1','other game');t.forage.set('rmmzsave.test','probe');
+    await t.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.equal(t.forage.get('rmmzsave.12.file1'),'zipped==');
+    await t.sandbox.PadPortSaveTransfer.transfer('export');
+    assert.deepEqual(transfer.calls[1].files,{'file1.rmmzsave':'zipped==','global.rmmzsave':'metadata=='});
+    assert.deepEqual(transfer.errors,[]);
+    const u=setup(),other=saveTransfer(u);
+    await u.sandbox.PadPortSaveTransfer.transfer('import');
+    await u.sandbox.PadPortSaveTransfer.transfer('export');
+    assert.match(other.errors[0],/No supported saves/);assert.match(other.errors[1],/no app saves/);
+    u.sandbox.PadPortHost.directoryTransfer=(json,id)=>u.sandbox.PadPortSaveTransfer.complete(id,{ok:false,error:'permission denied'});
+    await u.sandbox.PadPortSaveTransfer.transfer('import');assert.match(other.errors[2],/permission denied/);
+});
+
+test('Gecko manual transfer awaits HTTP results and does not use synchronous native requests',async()=>{
+    const t=setup(),transfer=saveTransfer(t);t.sandbox.__PADPORT_CONFIG__.renderer='gecko';
+    t.sandbox.fetch=async(url,options)=>{
+        assert.equal(url,'__padport__/save-transfer');assert.equal(options.method,'POST');
+        assert.deepEqual(JSON.parse(options.body),{op:'import'});
+        return {ok:true,json:async()=>({ok:true,value:{'file1.rpgsave':'from HTTP=='}})};
+    };
+    await t.sandbox.PadPortSaveTransfer.transfer('import');
+    assert.equal(t.local.get('RPG File1'),'from HTTP==');assert.equal(transfer.calls.length,0);
+    assert.equal(transfer.imported(),1);assert.deepEqual(transfer.errors,[]);
 });
 
 function graphics(t,width=816,height=624) {

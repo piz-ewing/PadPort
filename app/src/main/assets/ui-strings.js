@@ -3,6 +3,9 @@
     'use strict';
     const strings = {
         en: {
+            unsupported_save: 'Cannot map this save file to browser storage: {0}',
+            no_directory_saves: 'No supported saves were found in the game save folder.',
+            no_app_saves: 'This game has no app saves to export.',
             game_font_error: 'GameFont failed to load. Check the game font files and fonts/gamefont.css.',
             ttm_title_hint: 'Start or load a game to open the notebook.',
             ttm_notebook: 'Notebook',
@@ -47,6 +50,9 @@
             right_stick: 'Right: '
         },
         zh: {
+            unsupported_save: '无法将此存档文件映射到应用存储：{0}',
+            no_directory_saves: '游戏 save 目录中没有受支持的存档。',
+            no_app_saves: '应用内没有本游戏可导出的存档。',
             game_font_error: '游戏字体加载失败，请检查字体文件及 fonts/gamefont.css。',
             ttm_title_hint: '开始或载入游戏后可查看笔记本。',
             ttm_notebook: '笔记本',
@@ -91,6 +97,9 @@
             right_stick: '右摇杆：'
         },
         pl: {
+            unsupported_save: 'Nie można przypisać pliku zapisu do magazynu przeglądarki: {0}',
+            no_directory_saves: 'Brak obsługiwanych zapisów w folderze save gry.',
+            no_app_saves: 'Ta gra nie ma zapisów aplikacji do eksportu.',
             ttm_title_hint: 'Rozpocznij lub wczytaj grę, aby otworzyć notatnik.',
             ttm_notebook: 'Notatnik',
             ttm_characters: 'Postacie',

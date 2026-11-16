@@ -25,6 +25,7 @@ final class GameHttpServer implements Closeable {
     private final Context context;
     private final GameSource source;
     private final GameMarkers gameMarkers;
+    private final GameSaveTransfer saveTransfer;
     private final Consumer<String> log;
     private final ServerSocket socket;
     private final String token;
@@ -36,12 +37,14 @@ final class GameHttpServer implements Closeable {
     private volatile boolean closed;
     Consumer<String> exported = payload -> {}, saveError = message -> {};
     Runnable imported = () -> {};
+    java.util.function.IntConsumer directoryExported = count -> {};
     volatile java.util.function.Supplier<String> dualPoll=()->"{\"active\":false}";
     volatile Consumer<String> dualSnapshot=payload->{};
 
     GameHttpServer(Context context, GameSource source, Consumer<String> log) throws IOException {
         this.context = context; this.source = source; this.log = log;
         gameMarkers = new GameMarkers(source);
+        saveTransfer = new GameSaveTransfer(source);
         byte[] random = new byte[16];
         new SecureRandom().nextBytes(random);
         StringBuilder t = new StringBuilder("t");
@@ -215,6 +218,16 @@ final class GameHttpServer implements Closeable {
                     bytes(out, r, "application/json; charset=utf-8",
                         gameMarkers.execute(markerRequest).getBytes(StandardCharsets.UTF_8));
                     return true;
+                case "__padport__/save-transfer":
+                    if (!"POST".equals(r.method) || !origin().equals(r.headers.get("origin"))) {
+                        error(out, r, 403, "Forbidden"); return true;
+                    }
+                    bytes(out, r, "application/json; charset=utf-8",
+                        saveTransfer.execute(new String(r.body, StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
+                    return true;
+                case "__padport__/directory-exported":
+                    directoryExported.accept(Integer.parseInt(new String(r.body, StandardCharsets.UTF_8)));
+                    bytes(out, r, "text/plain", new byte[0]); return true;
                 case "__padport__/marker-file":
                     if (!"POST".equals(r.method) || !origin().equals(r.headers.get("origin"))) {
                         error(out, r, 403, "Forbidden"); return true;
@@ -236,7 +249,7 @@ final class GameHttpServer implements Closeable {
                     GameCompat.config(config,source);
                     String js = "window.__PADPORT_CONFIG__=" + config + ";\n" + new String(asset("gecko-host.js"), StandardCharsets.UTF_8) + "\n"
                         + new String(asset("node-buffer.js"), StandardCharsets.UTF_8) + "\n"
-                        + new String(asset("ui-strings.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("bridge.js"), StandardCharsets.UTF_8)
+                        + new String(asset("ui-strings.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("bridge.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("save-transfer.js"), StandardCharsets.UTF_8)
                         + "\n" + new String(asset("game-compat.js"),StandardCharsets.UTF_8)
                         + "\n" + new String(asset("look-outside-dual.js"),StandardCharsets.UTF_8)
                         + "\n" + new String(asset("fear-and-hunger-dual.js"),StandardCharsets.UTF_8)

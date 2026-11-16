@@ -145,4 +145,9 @@
         <item>Select / View</item><item>Start / Menu</item><item>L3</item><item>R3</item>
         <item>Krzyżak ↑</item><item>Krzyżak ↓</item><item>Krzyżak ←</item><item>Krzyżak →</item><item>Guide</item>
     </string-array>
+    <string name="import_directory_saves">Importuj zapisy z folderu gry</string>
+    <string name="export_directory_saves">Eksportuj zapisy do folderu gry</string>
+    <string name="import_directory_details">Skopiuj zapisy z folderu save gry (zwykle www/save) do PadPort. Pasujące zapisy w aplikacji zostaną zastąpione, a gra uruchomi się ponownie. Pliki źródłowe pozostaną bez zmian.</string>
+    <string name="export_directory_details">Skopiuj zapisane stany z PadPort do folderu save gry (zwykle www/save). Pasujące pliki zostaną zastąpione. Bieżący niezapisany postęp nie zostanie zapisany.</string>
+    <string name="directory_saves_exported">Wyeksportowano pliki zapisów do folderu gry: %1$d.</string>
 </resources>

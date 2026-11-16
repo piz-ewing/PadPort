@@ -147,4 +147,9 @@
         <item>Select / View</item><item>Start / Menu</item><item>L3</item><item>R3</item>
         <item>D-pad ↑</item><item>D-pad ↓</item><item>D-pad ←</item><item>D-pad →</item><item>Guide</item>
     </string-array>
+    <string name="import_directory_saves">Import saves from game folder</string>
+    <string name="export_directory_saves">Export saves to game folder</string>
+    <string name="import_directory_details">Copy saves from this game’s save folder (usually www/save) into PadPort. Matching app saves will be replaced and the game will restart. Source files stay unchanged.</string>
+    <string name="export_directory_details">Copy the saves already stored by this game in PadPort to its save folder (usually www/save). Matching files will be replaced. This does not save your current unsaved progress.</string>
+    <string name="directory_saves_exported">Exported %1$d save files to the game folder.</string>
 </resources>

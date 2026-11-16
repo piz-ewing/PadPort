@@ -129,13 +129,27 @@ Want this for another game? See
 
 ## Saves
 
-Save the normal way inside the game. Saves are kept inside PadPort, separately
-for each game.
+Save normally inside the game. PadPort keeps MV/MZ saves in the browser
+profile and RGSS saves in app storage. Removing a game from the library keeps
+its saves. Re-add the same folder with the same renderer to use them again.
 
-**Uninstalling PadPort or clearing its data deletes your saves.** Export them
-first with **Export saved games** in the menu while playing. Exporting saves
-what the game has already saved - it does not create a new save of where you
-are right now.
+The in-game app menu also offers **Import saves from game folder** and
+**Export saves to game folder** for MV/MZ. These copy files once between the
+app and the game’s `save` directory (usually `www/save`). Importing replaces
+matching app saves and restarts the game; source files stay unchanged.
+Exporting replaces matching files after confirmation and needs write access
+to the game folder. It copies existing saves, not unsaved gameplay progress.
+Normal gameplay never synchronizes with that directory.
+
+MV transfers include configuration, global metadata, numbered slots and their
+backups, using the game’s filename and browser-key rules. Files with plugin-only
+names that cannot be mapped to a browser save are reported before importing.
+MZ transfers use the game’s localforage keys and `.rmmzsave` files.
+The existing JSON backup import and export remain available.
+
+**Uninstalling PadPort or clearing its data deletes app-stored saves.**
+Export backups first. Moving the game folder changes its identity in PadPort;
+use an exported backup to move saves to a different folder.
 
 ## Why GeckoView?
 

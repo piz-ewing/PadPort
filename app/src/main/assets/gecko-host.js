@@ -15,6 +15,8 @@
         if(command==='dual-disable'){if(window.LookOutsideDual)LookOutsideDual.disable();if(window.FearHungerDual)FearHungerDual.disable();if(window.ElderfieldDual)ElderfieldDual.disable();return;}
         if (command === 'pause') pad.pause();
         else if (command === 'resume') pad.resume();
+        else if (command === 'importDirectorySaves') window.PadPortSaveTransfer.transfer('import');
+        else if (command === 'exportDirectorySaves') window.PadPortSaveTransfer.transfer('export');
         else if (command === 'exportSaves') pad.exportSaves();
         else if (command.startsWith('restore:')) {
             try { pad.restore(JSON.parse(command.slice(8))); } catch (error) { post('save-error', error.message); }
@@ -35,6 +37,7 @@
         log: message => post('log', message),
         exportReady: payload => post('export', payload),
         importReady: () => post('imported', ''),
+        directoryExportReady: count => post('directory-exported', count),
         saveError: message => post('save-error', message),
     };
 })();

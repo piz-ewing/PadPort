@@ -29,6 +29,7 @@ public class PlayerActivity extends LocalizedActivity {
     private boolean webReady;
     private GameSource source;
     private GameMarkers gameMarkers;
+    private GameSaveTransfer saveTransfer;
     private volatile DualScreenSession dualScreen;
     private FrameLayout root;
     private AlertDialog menu;
@@ -68,7 +69,7 @@ public class PlayerActivity extends LocalizedActivity {
         if(keyboard!=null)keyboard.clear();webReady=false;
         if(dualScreen!=null){dualScreen.close();dualScreen=null;}
         if(game!=null&&!DualScreenProfile.identify(game.title,game.engine).isEmpty())dualScreen=new DualScreenSession(this,game);
-        source=game;gameMarkers=game==null?null:new GameMarkers(game);root.removeAllViews();web=new WebView(this);
+        source=game;gameMarkers=game==null?null:new GameMarkers(game);saveTransfer=game==null?null:new GameSaveTransfer(game);root.removeAllViews();web=new WebView(this);
         keyboard=new KeyboardDispatcher(event->{if(web!=null)web.dispatchKeyEvent(event);});
         web.setBackgroundColor(Color.BLACK);web.setFocusableInTouchMode(true);
         WebSettings settings=web.getSettings();
@@ -147,7 +148,7 @@ public class PlayerActivity extends LocalizedActivity {
         if(web==null || menu!=null)return;
         pauseGame();
         String[] options=source==null?new String[]{getString(R.string.back_to_test),getString(R.string.controller_mapping),getString(R.string.diagnostics_copy_log),getString(R.string.close_tester)}
-            :new String[]{getString(R.string.back_to_game),getString(R.string.controller_mapping),getString(R.string.export_saves),getString(R.string.import_saves),getString(R.string.diagnostics_copy_log),getString(R.string.back_to_library)};
+            :new String[]{getString(R.string.back_to_game),getString(R.string.controller_mapping),getString(R.string.export_saves),getString(R.string.import_saves),getString(R.string.import_directory_saves),getString(R.string.export_directory_saves),getString(R.string.diagnostics_copy_log),getString(R.string.back_to_library)};
         LinearLayout settings=Ui.column(this);
         settings.addView(VirtualControllerSettings.checkbox(this,enabled->refreshVirtualController()));
         if(source!=null)settings.addView(DisplayRate.checkbox(this));
@@ -156,10 +157,17 @@ public class PlayerActivity extends LocalizedActivity {
             if(n==1)startActivity(new Intent(this,ControllerActivity.class));
             else if(source!=null && n==2){exporting=true;js("PadPort.exportSaves()");}
             else if(source!=null && n==3){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,IMPORT);}
-            else if(n==(source==null?2:4))showLog();
-            else if(n==(source==null?3:5))finish();
+            else if(source!=null && (n==4 || n==5))confirmDirectoryTransfer(n==5);
+            else if(n==(source==null?2:6))showLog();
+            else if(n==(source==null?3:7))finish();
         });
         menu.setOnDismissListener(d->{menu=null;if(foreground&&!isFinishing())resumeGame();});menu.show();
+    }
+    private void confirmDirectoryTransfer(boolean exporting) {
+        new AlertDialog.Builder(this).setTitle(exporting ? R.string.export_directory_saves : R.string.import_directory_saves)
+            .setMessage(exporting ? R.string.export_directory_details : R.string.import_directory_details)
+            .setPositiveButton(R.string.ok, (d,n) -> js("PadPortSaveTransfer.transfer('" + (exporting ? "export" : "import") + "')"))
+            .setNegativeButton(R.string.cancel, null).show();
     }
     private synchronized void log(String text){logs.add(text.length()>2000?text.substring(0,2000):text);while(logs.size()>120)logs.remove();}
     private void showLog(){
@@ -171,6 +179,19 @@ public class PlayerActivity extends LocalizedActivity {
     }
     private void error(String message){log(message);new AlertDialog.Builder(this).setTitle(R.string.app_name).setMessage(message).setPositiveButton(R.string.ok,null).show();}
     public final class Host {
+        @JavascriptInterface public void directoryTransfer(String request, int id) {
+            GameSaveTransfer current=saveTransfer;
+            if(current==null)return;
+            worker.execute(() -> {
+                String response=current.execute(request);
+                runOnUiThread(() -> {if(web!=null&&!isDestroyed()&&current==saveTransfer)
+                    js("PadPortSaveTransfer.complete("+id+","+response+")");});
+            });
+        }
+        @JavascriptInterface public void directoryExportReady(int count) {
+            runOnUiThread(() -> {if(!isDestroyed()) Toast.makeText(PlayerActivity.this,
+                getString(R.string.directory_saves_exported,count),Toast.LENGTH_LONG).show();});
+        }
         @JavascriptInterface public String markerFile(String request){
             GameMarkers current=gameMarkers;
             return current==null?"{\"ok\":false,\"error\":\"No game is open\"}":current.execute(request);
