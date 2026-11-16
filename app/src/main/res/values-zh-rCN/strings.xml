@@ -1,0 +1,161 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="ui_language">zh</string>
+    <string name="dual_screen_option">%1$s · 双屏界面</string>
+    <string name="ttm_dual_hint">在另一块屏幕查看当前进度的人物介绍、笔记和物品。</string>
+    <string name="dual_screen_hint">在另一块屏幕显示队伍状态和物品，此设置按游戏保存。</string>
+    <string name="ef_dual_hint">在另一块屏幕显示头像、生命、魔力、精力、状态、装备、时间、天气和金钱。下屏物品菜单可调用游戏原有操作。</string>
+    <string name="fh_dual_hint">在另一块屏幕显示队伍、身体与精神状态、肢体、饥饿、恐惧、流血等状态和装备。菜单与战斗仍在主屏幕。</string>
+    <string name="dual_screen_no_display">未检测到第二块屏幕。设置已保留，仍可使用普通界面。</string>
+    <string name="dual_screen_badge">双屏界面已启用</string>
+    <string name="dual_screen_question_title">使用双屏界面？</string>
+    <string name="dual_screen_question">检测到第二块屏幕。为 %1$s 启用双屏界面？%2$s 可稍后在游戏菜单中更改。</string>
+    <string name="dual_screen_enable">启用</string>
+    <string name="dual_screen_not_now">暂不启用</string>
+    <string name="tagline">在安卓设备上运行 RPG Maker 游戏</string>
+    <string name="library_hint">选择原游戏目录：MV/MZ 选择含 index.html 或 www 的目录；XP/VX/VX Ace 选择含 Game.ini 的目录。游戏文件保留在原处。</string>
+    <string name="indexing">正在建立文件索引…</string>
+    <string name="add_game">＋ 添加游戏目录</string>
+    <string name="controllers_button">控制器 · 按键映射与测试</string>
+    <string name="empty_library">游戏库为空。请将完整游戏目录复制到设备，再点击上方按钮添加。</string>
+    <string name="library_footer">PadPort %1$s\n存档保存在应用内，从游戏库移除游戏时仍会保留。游戏内菜单可导入、导出备份。</string>
+    <string name="refresh_game">更新游戏后刷新文件索引</string>
+    <string name="card_artwork">游戏封面…</string>
+    <string name="remove_game">从游戏库移除</string>
+    <string name="artwork_title">游戏封面：%1$s</string>
+    <string name="choose_image">从设备选择图片…</string>
+    <string name="restore_artwork">恢复游戏自带封面</string>
+    <string name="search_steamgriddb">在 SteamGridDB 搜索</string>
+    <string name="search_steam">在 Steam 搜索</string>
+    <string name="no_browser">没有可用于打开此页面的浏览器。</string>
+    <string name="artwork_error">无法加载封面</string>
+    <string name="artwork_saved">封面已保存。</string>
+    <string name="folder_permission_missing">未获得此目录的读取权限。</string>
+    <string name="game_added">已添加：%1$s</string>
+    <string name="limit_60hz">将屏幕限制为 60 Hz（RPG Maker 游戏通常为 60 帧，可降低高刷新率屏幕的耗电）</string>
+    <string name="cleanup_title">释放存储空间？</string>
+    <string name="cleanup_message">%1$s 包含仅在 Windows 运行时需要的文件（共 %2$d 项：NW.js、Chromium、Steam 运行库等），例如 %3$s。\n\nPadPort 无需这些文件，删除后可释放 %4$s。\n\n删除后，此目录中的游戏将无法直接在电脑上运行，且无法撤销。游戏数据和存档不会被删除。</string>
+    <string name="cleanup_delete">删除（%1$s）</string>
+    <string name="cleanup_keep">保留</string>
+    <string name="cleanup_done">已删除 %1$d 个文件，释放 %2$s</string>
+    <string name="cleanup_failed">有 %1$d 个文件无法删除：%2$s</string>
+    <string name="open_game_error">无法打开游戏</string>
+    <string name="game_details">RPG Maker %1$s · 独立存档</string>
+    <string name="play">开始游戏</string>
+    <string name="game_options">游戏选项：%1$s</string>
+    <string name="ok">确定</string>
+    <string name="back">返回</string>
+    <string name="close">关闭</string>
+    <string name="cancel">取消</string>
+    <string name="copy">复制</string>
+    <string name="restore">恢复</string>
+    <string name="opening_game">正在打开原游戏文件…</string>
+    <string name="game_not_in_library">此游戏不在游戏库中。</string>
+    <string name="launch_error">无法启动游戏</string>
+    <string name="launch_error_details">%1$s\n\n请在游戏库刷新文件索引，或重新选择游戏目录。</string>
+    <string name="app_menu">应用菜单</string>
+    <string name="back_to_test">返回测试</string>
+    <string name="back_to_game">返回游戏</string>
+    <string name="controller_mapping">控制器按键映射</string>
+    <string name="diagnostics_copy_log">诊断与日志</string>
+    <string name="close_tester">关闭测试器</string>
+    <string name="export_saves">导出存档备份</string>
+    <string name="import_saves">导入存档备份</string>
+    <string name="back_to_library">返回游戏库</string>
+    <string name="controller_tester">控制器测试</string>
+    <string name="game_diagnostics">游戏诊断</string>
+    <string name="backup_too_large">存档备份超过 32 MB。</string>
+    <string name="saves_restored">存档已恢复，正在重启游戏。</string>
+    <string name="file_access_error">无法访问文件。</string>
+    <string name="backup_exported">存档备份已导出。</string>
+    <string name="backup_access_error">无法访问存档备份。</string>
+    <string name="restore_question">恢复存档？</string>
+    <string name="restore_details">备份中的存档会覆盖本游戏的同名存档，游戏随后重启。</string>
+    <string name="controller_title">控制器</string>
+    <string name="show_virtual_controller">显示虚拟手柄</string>
+    <string name="virtual_controller_name">虚拟手柄</string>
+    <string name="virtual_controller_transparency">虚拟手柄透明度：%1$d%%</string>
+    <string name="virtual_controller_transparency_label">虚拟手柄透明度</string>
+    <string name="virtual_controller_transparency_hint" formatted="false">0% 完全显示 · 100% 完全透明</string>
+    <string name="virtual_controller_hint">没有实体手柄时，可使用屏幕方向键和按钮，也可与实体手柄同时使用。</string>
+    <string name="controller_setting_error">无法保存控制器设置。</string>
+    <string name="controller_subtitle">蓝牙与 USB · 手柄或键盘输出</string>
+    <string name="control_mode">控制模式</string>
+    <string name="control_mode_gamepad">手柄模式</string>
+    <string name="control_mode_keyboard">键盘模式</string>
+    <string name="keyboard_output_hint">键盘模式发送映射的按键，左摇杆使用方向键映射。同时按住两个按钮，可组合 Shift、Ctrl 等修饰键。</string>
+    <string name="keyboard_bindings">键盘按键映射…</string>
+    <string name="key_unassigned">未分配</string>
+    <string name="keyboard_reset_bindings">恢复默认键盘映射</string>
+    <string name="keyboard_key_for">%1$s 对应的键盘按键</string>
+    <string name="keyboard_capture_key">请按下按键…</string>
+    <string name="keyboard_capture_hint">按下已连接键盘上的按键，也可取消后从列表选择。</string>
+    <string name="keyboard_mapping_hint">若手柄以键盘方式工作，请在下方选择设备并进行映射。映射后作为手柄按钮输入，不再向游戏发送键盘事件。</string>
+    <string name="open_tester">测试器 · 查看游戏收到的输入</string>
+    <string name="device_builtin">内置控制器</string>
+    <string name="device_gamepad">手柄</string>
+    <string name="device_keyboard">HID / 键盘</string>
+    <string name="refresh_devices">刷新设备列表</string>
+    <string name="no_devices">未检测到设备。请在蓝牙设置中配对手柄，或通过 USB OTG 连接。</string>
+    <string name="stick_deadzone">摇杆死区：%1$d%%</string>
+    <string name="invert_right_y">反转右摇杆 Y 轴</string>
+    <string name="right_rx_ry">右摇杆使用 RX/RY 轴（代替 Z/RZ）</string>
+    <string name="default_mapping">默认</string>
+    <string name="map_button">%1$d · %2$s — 映射（%3$s）</string>
+    <string name="reset_mapping">恢复此设备的默认映射</string>
+    <string name="assign_title">分配按键：%1$s</string>
+    <string name="assign_hint">请在以下设备按下对应按钮：\n%1$s\n\n也可按扳机键或方向键。</string>
+    <string name="controller_idle">请连接控制器并按下按钮。</string>
+    <string name="axis_event">%1$s · 轴 %2$s · 方向 %3$s、%4$s</string>
+    <string name="folder_read_error">无法读取游戏目录。</string>
+    <string name="index_missing">未找到游戏。MV/MZ 请选择含 index.html 或 www 的目录，XP/VX/VX Ace 请选择含 Game.ini 的目录。</string>
+    <string name="unsupported_engine">此目录不包含支持的 RPG Maker MV/MZ/XP/VX/VX Ace 游戏。</string>
+    <string name="engine_gecko_option">使用 GeckoView（64 位引擎）</string>
+    <string name="engine_gecko_hint">推荐大体积游戏使用。关闭后改用安卓系统 WebView，此设置按游戏保存。</string>
+    <string name="engine_switch_title">切换游戏引擎？</string>
+    <string name="engine_switch_message">切换后，%1$s 的应用内存档会随引擎变化。原存档不会删除，切回原引擎即可继续使用。</string>
+    <string name="engine_switch_confirm">切换引擎</string>
+    <string name="renderer_gone_title">游戏已停止</string>
+    <string name="renderer_crashed">安卓系统 WebView 的游戏进程崩溃。已保存的进度仍保留，未保存的进度会丢失。</string>
+    <string name="renderer_crashed_gecko">GeckoView 的游戏进程崩溃。已保存的进度仍保留，未保存的进度会丢失。</string>
+    <string name="renderer_killed">系统为释放内存关闭了游戏。已保存的进度仍保留，未保存的进度会丢失。</string>
+    <string name="renderer_restart">重新启动游戏</string>
+    <string name="rgss_experimental_title">实验性支持</string>
+    <string name="rgss_experimental_message">“%1$s” 是 RPG Maker %2$s 游戏，使用实验性的 mkxp-z 引擎，可能出现画面错误、脚本错误或崩溃。\n\n首次启动会将游戏文件复制到应用存储。\n\n是否继续？</string>
+    <string name="rgss_experimental_continue">继续</string>
+    <string name="rgss_preparing">正在准备游戏文件…</string>
+    <string name="rgss_copying">正在复制游戏文件：%1$d%%（%2$d / %3$d MB）\n\n首次启动需要完整复制，之后仅复制有变化的文件。</string>
+    <string name="rgss_space_error">存储空间不足，需要 %1$d MB，当前可用 %2$d MB。</string>
+    <string name="rgss_storage_error">无法将游戏文件写入应用存储。</string>
+    <string name="rgss_wrong_engine">此游戏未使用 RGSS 引擎（XP/VX/VX Ace）。</string>
+    <string name="rgss_another_game">另一款 XP/VX/VX Ace 游戏正在运行，请先在菜单中退出。</string>
+    <string name="rgss_exit_game">退出游戏</string>
+    <string name="rgss_saves_exported">存档备份已导出，共 %1$d 个文件</string>
+    <string name="rgss_saves_imported">已恢复 %1$d 个存档文件，请重新打开游戏读档菜单。</string>
+    <string name="rgss_import_details">备份文件会覆盖同名存档。</string>
+    <string name="file_open_error">无法打开：%1$s</string>
+    <string name="file_too_large">文件超过 %1$d 字节的限制。</string>
+    <string name="thumbnail_directory_error">无法创建缩略图目录。</string>
+    <string name="image_decode_error">无法读取图片，请选择 PNG、JPG 或 WebP 文件。</string>
+    <string name="thumbnail_save_error">无法保存缩略图。</string>
+    <string name="image_access_error">无法访问图片。</string>
+    <string-array name="gamepad_buttons">
+        <item>A / ×</item>
+        <item>B / ○</item>
+        <item>X / □</item>
+        <item>Y / △</item>
+        <item>L1 / LB</item>
+        <item>R1 / RB</item>
+        <item>L2 / LT</item>
+        <item>R2 / RT</item>
+        <item>选择 / View</item>
+        <item>开始 / 菜单</item>
+        <item>L3</item>
+        <item>R3</item>
+        <item>方向 ↑</item>
+        <item>方向 ↓</item>
+        <item>方向 ←</item>
+        <item>方向 →</item>
+        <item>主页</item>
+    </string-array>
+</resources>

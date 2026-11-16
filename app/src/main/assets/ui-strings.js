@@ -45,6 +45,49 @@
             left_stick: 'Left: ',
             right_stick: 'Right: '
         },
+        zh: {
+            ttm_title_hint: '开始或载入游戏后可查看笔记本。',
+            ttm_notebook: '笔记本',
+            ttm_characters: '人物',
+            ttm_notes: '笔记',
+            ttm_items: '物品',
+            ttm_empty: '此分类暂无内容。',
+            dual_waiting: '正在等待游戏…',
+            dual_party: '队伍',
+            dual_choose_target: '选择物品使用对象',
+            dual_inventory: '物品栏',
+            dual_use: '使用',
+            dual_back: '返回',
+            dual_choose_action: '选择操作',
+            dual_confirm_drop: '丢弃？',
+            weather_clear: '晴',
+            weather_cloudy: '多云',
+            weather_rain: '雨',
+            weather_storm: '暴风雨',
+            weather_snow: '雪',
+            snapshot_error: '控制器状态：{0}',
+            node_module: 'PadPort：无法使用 Node.js 模块：{0}',
+            node_fs_readonly: 'PadPort：游戏资源文件为只读（{0}）',
+            binary_save: '不支持的二进制存档：{0}',
+            export_error: '导出失败：{0}',
+            wrong_backup: '备份属于其他游戏，或格式不受支持。',
+            invalid_backup: '存档备份结构无效。',
+            no_forage: '游戏引擎未提供 localforage 存储。',
+            invalid_local_storage: '无效的 localStorage 数据：{0}',
+            import_error: '导入失败：{0}',
+            gamepad_ready: '手柄接口已就绪 · {0}',
+            tester: '测试器',
+            tester_title: 'PadPort · 控制器测试',
+            tester_heading: '游戏收到了哪些输入？',
+            tester_hint: '这里使用与 RPG Maker 相同的手柄接口。请按下按钮、移动摇杆或扳机。',
+            keyboard_events: '键盘事件：',
+            held_keys: '当前按键：',
+            keyboard_mode_hint: '键盘模式：下方显示映射按钮产生的键盘事件。',
+            tester_footer: '手柄模式下键盘计数保持为 0，键盘模式会发送映射按键。点击 ⋮ 或系统返回键打开菜单。',
+            no_controller: '未连接控制器。请连接蓝牙或 USB 手柄；键盘模式设备需先映射按键。',
+            left_stick: '左摇杆：',
+            right_stick: '右摇杆：'
+        },
         pl: {
             ttm_title_hint: 'Rozpocznij lub wczytaj grę, aby otworzyć notatnik.',
             ttm_notebook: 'Notatnik',
@@ -89,7 +132,8 @@
             right_stick: 'Prawy: '
         }
     };
-    const language = (window.__PADPORT_CONFIG__ || {}).language === 'pl' ? 'pl' : 'en';
+    const requestedLanguage = (window.__PADPORT_CONFIG__ || {}).language;
+    const language = Object.prototype.hasOwnProperty.call(strings, requestedLanguage) ? requestedLanguage : 'en';
     const text = (key, ...args) => (strings[language][key] || strings.en[key] || key)
         .replace(/\{(\d+)\}/g, (_, index) => String(args[Number(index)] ?? ''));
     window.PadPortI18n = Object.freeze({language, text, keys: Object.freeze(Object.keys(strings.en))});
