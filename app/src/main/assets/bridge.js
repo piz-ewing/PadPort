@@ -63,7 +63,7 @@
         fitToViewport();
         if (!host || !host.snapshot) return pads.slice();
         let data;
-        try { data = JSON.parse(host.snapshot()); }
+        try { data = typeof host.inputSnapshot === 'function' ? host.inputSnapshot() : JSON.parse(host.snapshot()); }
         catch (e) { log(text('snapshot_error', e.message)); return pads.slice(); }
         if (data.revision === revision) return pads.slice();
         revision = data.revision;

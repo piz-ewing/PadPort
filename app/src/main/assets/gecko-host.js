@@ -5,9 +5,14 @@
     'use strict';
     if (window.PadPortHost) return;
     let snapshot = '{"revision":0,"paused":false,"pads":[]}';
+    let inputSnapshot = {revision: 0, paused: false, pads: []};
     const post = (name, body) => fetch('__padport__/' + name, {method: 'POST', body: body == null ? '' : String(body)}).catch(() => {});
     const events = new EventSource('__padport__/events');
-    events.onmessage = e => { snapshot = e.data; };
+    events.onmessage = e => {
+        const state = JSON.parse(e.data);
+        snapshot = e.data;
+        inputSnapshot = state;
+    };
     events.addEventListener('cmd', e => {
         const pad = window.PadPort;
         if (!pad) return;
@@ -35,6 +40,7 @@
         dualPoll: () => fetch('__padport__/dual-poll',{cache:'no-store'}).then(r=>r.text()),
         dualSnapshot: payload => post('dual-snapshot',payload),
         snapshot: () => snapshot,
+        inputSnapshot: () => inputSnapshot,
         log: message => post('log', message),
         debugState: state => post('debug-state',state),
         exportReady: payload => post('export', payload),
