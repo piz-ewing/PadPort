@@ -1,10 +1,30 @@
 package pl.padport.app;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
+import java.io.File;
+import java.io.IOException;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 public class DisplayRateTest {
+    @Rule public TemporaryFolder temporary=new TemporaryFolder();
+
+    @Test public void displayPreferencePersistsBothSwitchPositions() throws Exception {
+        File flag=new File(temporary.getRoot(),"limit-60hz.enabled");
+        assertFalse(flag.isFile());
+        DisplayRate.saveFlag(flag,true);DisplayRate.saveFlag(flag,true);
+        assertTrue(new File(flag.getPath()).isFile());
+        DisplayRate.saveFlag(flag,false);DisplayRate.saveFlag(flag,false);
+        assertFalse(flag.exists());
+    }
+
+    @Test public void unwritablePreferenceReportsFailure() {
+        File flag=new File(temporary.getRoot(),"missing/limit-60hz.enabled");
+        assertThrows(IOException.class,()->DisplayRate.saveFlag(flag,true));
+        assertFalse(flag.exists());
+    }
     @Test public void thorTopScreenPicksItsSixtyHertzMode(){
         // AYN Thor: top 1080x1920 (modes 1: 60 Hz, 2: 120 Hz), bottom 1080x1240 (3: 120 Hz, 4: 60 Hz).
         int[][] modes={{1,1080,1920},{2,1080,1920},{3,1080,1240},{4,1080,1240}};

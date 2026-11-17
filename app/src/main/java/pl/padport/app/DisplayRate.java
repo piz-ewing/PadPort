@@ -8,6 +8,7 @@ import android.view.WindowManager;
 import android.widget.CheckBox;
 import android.widget.Toast;
 import java.io.File;
+import java.io.IOException;
 
 /**
  * Optional 60 Hz screen limit (off by default, set in the in-game menu).
@@ -22,6 +23,11 @@ final class DisplayRate {
 
     private static File flag(Context context){return new File(context.getFilesDir(),"limit-60hz.enabled");}
     static boolean enabled(Context context){return flag(context).isFile();}
+
+    static void saveFlag(File file,boolean enabled) throws IOException {
+        if(enabled){if(!file.isFile()&&!file.createNewFile())throw new IOException("Unable to enable display setting");}
+        else if(file.exists()&&!file.delete())throw new IOException("Unable to disable display setting");
+    }
 
     static void apply(Activity activity){
         apply(activity.getWindow(),activity.getWindowManager().getDefaultDisplay(),enabled(activity));
@@ -60,11 +66,8 @@ final class DisplayRate {
         CheckBox box=new CheckBox(activity);box.setText(R.string.limit_60hz);
         box.setChecked(enabled(activity));
         box.setOnCheckedChangeListener((button,checked)->{
-            File file=flag(activity);
-            boolean saved;
-            try{saved=checked?(file.isFile()||file.createNewFile()):(!file.exists()||file.delete());}
-            catch(java.io.IOException e){saved=false;}
-            if(!saved){
+            try{saveFlag(flag(activity),checked);}
+            catch(IOException e){
                 button.setChecked(enabled(activity));
                 Toast.makeText(activity,R.string.controller_setting_error,Toast.LENGTH_LONG).show();
                 return;
