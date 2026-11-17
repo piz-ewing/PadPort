@@ -30,7 +30,7 @@ function fakeServer(files) {
     return {XMLHttpRequest,requests};
 }
 
-function setup(language, files={}) {
+function setup(language, files={}, config={}) {
     let current={revision:1,paused:false,pads:[null,null,null,null]};
     const events=[], local=new Map(), forage=new Map(), listeners=new Map();
     let clears=0;
@@ -40,7 +40,7 @@ function setup(language, files={}) {
     class Document { mozCancelFullScreen(){ return Promise.reject(new TypeError('Not in fullscreen')); } }
     const sandbox={console, Element, Document, Event:class Event{constructor(type){this.type=type;}}, Blob, ArrayBuffer, Uint8Array, URL, AbortController, setTimeout, clearTimeout,
         XMLHttpRequest:server.XMLHttpRequest, document:{baseURI:'https://g1.padport.local/index.html'},
-        performance:{now:()=>42}, navigator:{}, __PADPORT_CONFIG__:{title:'Test Game',engine:'MZ',language},
+        performance:{now:()=>42}, navigator:{}, __PADPORT_CONFIG__:{title:'Test Game',engine:'MZ',language,...config},
         localStorage:{get length(){return local.size;}, key:i=>[...local.keys()][i],getItem:k=>local.get(k)??null,
             setItem:(k,v)=>local.set(k,v),removeItem:k=>local.delete(k)},
         localforage:{ready:async()=>{},keys:async()=>[...forage.keys()],getItem:async k=>forage.get(k),
@@ -53,6 +53,82 @@ function setup(language, files={}) {
     return {sandbox,events,local,forage,requests:server.requests,clears:()=>clears,set:x=>current=x,fire:type=>(listeners.get(type)||[]).forEach(fn=>fn({type}))};
 }
 function pad(id=7,buttons=[]) {return {nativeId:id,id:'Xbox test',index:0,axes:[.75,-1,.2,.4],buttons:Array.from({length:17},(_,i)=>buttons[i]||0)};}
+
+test('legacy MV resumes its update loop once after repeated pause requests',()=>{
+    const t=setup('en',{}, {engine:'MV'});let stops=0,requests=0;
+    const manager={_stopped:false,_currentTime:12,_accumulator:0.2,
+        stop(){this._stopped=true;stops++;},requestUpdate(){requests++;},
+        _getTimeInMsWithoutMobileSafari(){return 900;}};
+    t.sandbox.SceneManager=manager;
+    t.sandbox.PadPort.resume();assert.equal(requests,0);
+    t.sandbox.PadPort.pause();t.sandbox.PadPort.pause();
+    assert.equal(stops,1);assert.equal(manager._stopped,true);
+    t.sandbox.PadPort.resume();t.sandbox.PadPort.resume();
+    assert.equal(manager._stopped,false);assert.equal(requests,1);
+    assert.equal(manager._currentTime,900);assert.equal(manager._accumulator,0);
+    t.sandbox.PadPort.pause();t.sandbox.PadPort.resume();
+    assert.equal(stops,2);assert.equal(requests,2);
+});
+
+test('engines with resume retain their own lifecycle implementation',()=>{
+    const t=setup();let resumes=0;
+    t.sandbox.SceneManager={_stopped:false,stop(){this._stopped=true;},
+        resume(){resumes++;this._stopped=false;}};
+    t.sandbox.PadPort.pause();t.sandbox.PadPort.resume();t.sandbox.PadPort.resume();
+    assert.equal(resumes,1);assert.equal(t.sandbox.SceneManager._stopped,false);
+});
+
+test('legacy MV resets its original clock when returning from pause',()=>{
+    const t=setup('en',{}, {engine:'MV'});
+    const manager={_stopped:false,_currentTime:10,_accumulator:0.4,
+        stop(){this._stopped=true;},_getTimeInMs(){return 75000;},
+        requestUpdate(){assert.equal(this._currentTime,75000);assert.equal(this._accumulator,0);}};
+    t.sandbox.SceneManager=manager;
+    t.sandbox.PadPort.pause();t.sandbox.PadPort.resume();
+    assert.equal(manager._stopped,false);
+});
+
+test('an engine stopped before the app pause is not restarted by the app',()=>{
+    const t=setup('en',{}, {engine:'MV'});let stops=0,requests=0;
+    t.sandbox.SceneManager={_stopped:true,stop(){stops++;},requestUpdate(){requests++;}};
+    t.sandbox.PadPort.pause();t.sandbox.PadPort.resume();
+    assert.equal(stops,0);assert.equal(requests,0);assert.equal(t.sandbox.SceneManager._stopped,true);
+});
+
+test('rapid MV pause/resume cannot accumulate parallel animation callbacks',()=>{
+    const t=setup('en',{}, {engine:'MV'}),queue=[];let updates=0;
+    t.sandbox.requestAnimationFrame=callback=>{queue.push(callback);return queue.length;};
+    t.sandbox.SceneManager={_stopped:false,
+        requestUpdate(){if(!this._stopped)t.sandbox.requestAnimationFrame(this.update.bind(this));},
+        update(){updates++;this.requestUpdate();},
+        stop(){this._stopped=true;},
+        resume(){this._stopped=false;this.requestUpdate();},
+        _getTimeInMs(){return 100;}};
+    t.fire('load');
+    const manager=t.sandbox.SceneManager;manager.requestUpdate();
+    for(let i=0;i<50;i++){t.sandbox.PadPort.pause();t.sandbox.PadPort.resume();}
+    assert.equal(queue.length,1,'there must be at most one pending engine update');
+    queue.shift()();assert.equal(updates,1);assert.equal(queue.length,1);
+    t.sandbox.PadPort.pause();queue.shift()();
+    assert.equal(updates,1,'a pending callback must not update a paused scene');
+    assert.equal(queue.length,0);
+    t.sandbox.PadPort.resume();assert.equal(queue.length,1);
+    queue.shift()();assert.equal(updates,2);assert.equal(queue.length,1);
+});
+
+test('MV scheduling keeps plugin delays and recovers after a request error',()=>{
+    const t=setup('en',{}, {engine:'MV'}),queue=[];let fail=true,updates=0;
+    const manager={_stopped:false,
+        requestUpdate(){if(fail)throw new Error('request failed');queue.push(()=>this.update());return 17;},
+        update(){updates++;this.requestUpdate();},stop(){this._stopped=true;},
+        _getTimeInMs(){return 100;}};
+    t.sandbox.SceneManager=manager;t.fire('load');
+    assert.throws(()=>manager.requestUpdate(),/request failed/);
+    fail=false;assert.equal(manager.requestUpdate(),17);
+    manager.requestUpdate();manager.requestUpdate();assert.equal(queue.length,1);
+    t.sandbox.PadPort.pause();t.sandbox.PadPort.resume();assert.equal(queue.length,1);
+    queue.shift()();assert.equal(updates,1);assert.equal(queue.length,1);
+});
 
 test('MV font boot preserves loading and success, and reports failed or stalled fonts',()=>{
     const t=setup('zh');

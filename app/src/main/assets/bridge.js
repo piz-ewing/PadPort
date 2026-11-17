@@ -11,6 +11,7 @@
     let engineStopped = false;
     let viewportGraphics = null;
     let viewportSignature = '';
+    let scheduledManager = null;
     const host = window.PadPortHost;
 
     function log(message) {
@@ -276,9 +277,29 @@
             catch (e) { log('fullscreen ' + name + ': ' + e.message); }
         }
     }
+    function guardUpdateLoop() {
+        const manager = window.SceneManager;
+        if (config.engine !== 'MV' || !manager || scheduledManager === manager
+            || typeof manager.requestUpdate !== 'function' || typeof manager.update !== 'function') return;
+        const request = manager.requestUpdate;
+        const update = manager.update;
+        let pending = false;
+        manager.requestUpdate = function() {
+            if (this._stopped || pending) return;
+            pending = true;
+            try { return request.apply(this, arguments); }
+            catch (error) { pending = false; throw error; }
+        };
+        manager.update = function() {
+            pending = false;
+            if (!this._stopped) return update.apply(this, arguments);
+        };
+        scheduledManager = manager;
+    }
     function pause() {
+        guardUpdateLoop();
         clearInput();
-        if (window.SceneManager && typeof SceneManager.stop === 'function' && !engineStopped) {
+        if (window.SceneManager && typeof SceneManager.stop === 'function' && !SceneManager._stopped && !engineStopped) {
             engineStopped = true;
             SceneManager.stop();
         }
@@ -286,12 +307,25 @@
         if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
     }
     function resume() {
+        guardUpdateLoop();
         for (const cached of markerStats.values()) cached.checkedAt = -Infinity;
         clearInput();
         fitToViewport();
-        if (engineStopped && window.SceneManager && typeof SceneManager.resume === 'function') {
+        if (engineStopped && window.SceneManager) {
             engineStopped = false;
-            SceneManager.resume();
+            if (typeof SceneManager.resume === 'function') SceneManager.resume();
+            else if (config.engine === 'MV' && typeof SceneManager.requestUpdate === 'function') {
+                // MV before 1.5 has stop/requestUpdate but no resume method.
+                SceneManager._stopped = false;
+                if (typeof SceneManager._getTimeInMsWithoutMobileSafari === 'function') {
+                    SceneManager._currentTime = SceneManager._getTimeInMsWithoutMobileSafari();
+                    SceneManager._accumulator = 0;
+                } else if (typeof SceneManager._getTimeInMs === 'function') {
+                    SceneManager._currentTime = SceneManager._getTimeInMs();
+                    SceneManager._accumulator = 0;
+                }
+                SceneManager.requestUpdate();
+            }
         }
         const ctx = window.WebAudio && WebAudio._context;
         if (ctx && ctx.state === 'suspended') ctx.resume().catch(e => log(e.message));
@@ -349,6 +383,7 @@
         catch (e) { host.saveError(text('import_error', e.message)); }
     }
     window.addEventListener('load', () => {
+        guardUpdateLoop();
         if (config.engine !== 'MV' || !window.Scene_Boot || !document.fonts) return;
         const original = Scene_Boot.prototype.isGameFontLoaded;
         if (typeof original !== 'function') return;
