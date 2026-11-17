@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="virtual_controller_layout">Button layout</string>
+    <string name="virtual_layout_default">Default style</string>
+    <string name="virtual_layout_mtool">mtool style</string>
     <string name="dual_screen_option">%1$s — dual-screen interface</string>
     <string name="ttm_dual_hint">Collected notes, items and current character biographies on the other display. The notebook uses the current game state.</string>
     <string name="dual_screen_hint">Party status and inventory on the other display. This setting is saved for this game.</string>

@@ -46,10 +46,12 @@ final class ControllerHub implements InputManager.InputDeviceListener {
     int keyboardBinding(int button){return output.keys[button];}
     Set<Integer> keyboardKeys(){
         if(paused)return java.util.Collections.emptySet();
-        return KeyboardMapping.pressed(new KeyboardMapping.State(){
+        Set<Integer> keys=virtualPad.keys();
+        if(output.keyboard)keys.addAll(KeyboardMapping.pressed(new KeyboardMapping.State(){
             public float button(int index){return ControllerHub.this.button(index);}
             public float axis(int index){return ControllerHub.this.axis(index);}
-        },output.keys);
+        },output.keys));
+        return keys;
     }
     /** Combined state of all connected pads (used by the native RGSS player). */
     float button(int index) {

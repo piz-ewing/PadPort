@@ -136,7 +136,7 @@ public class PlayerActivity extends LocalizedActivity {
     private void js(String code){if(web!=null)web.evaluateJavascript("if(window.PadPort){"+code+";}",null);}
     private void updateKeyboard(){
         if(keyboard==null)return;
-        if(web!=null&&webReady&&foreground&&menu==null&&hasWindowFocus()&&controllers.keyboardMode())keyboard.update(controllers.keyboardKeys());
+        if(web!=null&&webReady&&foreground&&menu==null&&hasWindowFocus())keyboard.update(controllers.keyboardKeys());
         else keyboard.clear();
     }
     private void pauseGame(){if(dualScreen!=null)dualScreen.pause();js("if(window.LookOutsideDual)LookOutsideDual.disable();if(window.FearHungerDual)FearHungerDual.disable();if(window.ElderfieldDual)ElderfieldDual.disable()");menuHandler.removeCallbacks(hideMenuButton);touchingScreen=false;if(virtualControls!=null)virtualControls.suspend();if(controllers!=null)controllers.clear(true);js("PadPort.pause()");if(web!=null)web.onPause();}
@@ -151,6 +151,7 @@ public class PlayerActivity extends LocalizedActivity {
             :new String[]{getString(R.string.back_to_game),getString(R.string.controller_mapping),getString(R.string.export_saves),getString(R.string.import_saves),getString(R.string.import_directory_saves),getString(R.string.export_directory_saves),getString(R.string.diagnostics_copy_log),getString(R.string.back_to_library)};
         LinearLayout settings=Ui.column(this);
         settings.addView(VirtualControllerSettings.checkbox(this,enabled->refreshVirtualController()));
+        settings.addView(VirtualControllerSettings.layoutControl(this,this::refreshVirtualController));
         if(source!=null)settings.addView(DisplayRate.checkbox(this));
         if(source!=null)settings.addView(DualScreenOptions.controls(this,Library.get(this,source.id),()->{}));
         menu=Ui.menuDialog(this,source==null?getString(R.string.controller_tester):source.title,options,settings,(dialog,n)->{

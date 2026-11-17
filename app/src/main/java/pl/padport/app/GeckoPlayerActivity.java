@@ -304,7 +304,7 @@ public class GeckoPlayerActivity extends LocalizedActivity {
 
     private void updateKeyboard() {
         if (keyboard == null) return;
-        if (session != null && pageReady && foreground && menu == null && hasWindowFocus() && controllers.keyboardMode())
+        if (session != null && pageReady && foreground && menu == null && hasWindowFocus())
             keyboard.update(controllers.keyboardKeys());
         else keyboard.clear();
     }
@@ -345,6 +345,7 @@ public class GeckoPlayerActivity extends LocalizedActivity {
             getString(R.string.import_saves), getString(R.string.import_directory_saves), getString(R.string.export_directory_saves), getString(R.string.diagnostics_copy_log), getString(R.string.back_to_library)};
         LinearLayout settings = Ui.column(this);
         settings.addView(VirtualControllerSettings.checkbox(this, enabled -> refreshVirtualController()));
+        settings.addView(VirtualControllerSettings.layoutControl(this,this::refreshVirtualController));
         settings.addView(DisplayRate.checkbox(this));
         settings.addView(DualScreenOptions.controls(this, Library.get(this, source.id), () -> {}));
         menu = Ui.menuDialog(this, source.title + " · GeckoView", items, settings, (d, n) -> {

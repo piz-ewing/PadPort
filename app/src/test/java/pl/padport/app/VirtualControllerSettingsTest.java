@@ -35,4 +35,12 @@ public class VirtualControllerSettingsTest {
         VirtualControllerSettings.writeTransparency(file,200);assertEquals(100,VirtualControllerSettings.readTransparency(file));
         VirtualControllerSettings.writeTransparency(file,-30);assertEquals(0,VirtualControllerSettings.readTransparency(file));
     }
+    @Test public void layoutDefaultsAndPersistsAcrossReads() throws Exception {
+        File file=new File(temporary.getRoot(),"layout");
+        assertFalse(VirtualControllerSettings.readLayout(file));
+        VirtualControllerSettings.writeLayout(file,true);assertTrue(VirtualControllerSettings.readLayout(new File(file.getPath())));
+        VirtualControllerSettings.writeLayout(file,false);assertFalse(VirtualControllerSettings.readLayout(file));
+        Files.write(file.toPath(),"unsupported".getBytes(StandardCharsets.UTF_8));assertFalse(VirtualControllerSettings.readLayout(file));
+        assertFalse(new File(file+".tmp").exists());
+    }
 }

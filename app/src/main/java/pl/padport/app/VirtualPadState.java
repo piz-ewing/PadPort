@@ -2,11 +2,14 @@ package pl.padport.app;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Pointer ownership and input merging, independent of Android and the renderer. */
 final class VirtualPadState {
     private static final int ALL_BUTTONS=(1<<17)-1;
     private final Map<Integer,Integer> pointers=new HashMap<>();
+    private final Map<Integer,Integer> keyPointers=new HashMap<>();
     private boolean enabled,paused;
 
     boolean enabled(){return enabled;}
@@ -15,8 +18,11 @@ final class VirtualPadState {
     void enabled(boolean value){if(enabled!=value){enabled=value;clear();}}
     void paused(boolean value){paused=value;clear();}
     void touch(int pointer,int mask){if(interactive())pointers.put(pointer,mask&ALL_BUTTONS);}
-    void release(int pointer){pointers.remove(pointer);}
-    void clear(){pointers.clear();}
+    void touchKey(int pointer,int key){if(interactive()){if(key==0)keyPointers.remove(pointer);else keyPointers.put(pointer,key);}}
+    Set<Integer> keys(){return interactive()?new HashSet<>(keyPointers.values()):new HashSet<>();}
+    boolean keyDown(int key){return interactive()&&keyPointers.containsValue(key);}
+    void release(int pointer){pointers.remove(pointer);keyPointers.remove(pointer);}
+    void clear(){pointers.clear();keyPointers.clear();}
     int buttons(){
         if(!interactive())return 0;
         int mask=0;for(int value:pointers.values())mask|=value;return mask;

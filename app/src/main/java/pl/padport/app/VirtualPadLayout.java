@@ -1,17 +1,44 @@
 package pl.padport.app;
 
+import android.view.KeyEvent;
+
 /** Responsive hit areas in standard Gamepad button order. */
 final class VirtualPadLayout {
-    record Button(String label,int index,float left,float top,float right,float bottom,boolean round){
+    record Button(String label,int index,float left,float top,float right,float bottom,boolean round,int key){
+        Button(String label,int index,float left,float top,float right,float bottom,boolean round){this(label,index,left,top,right,bottom,round,0);}
         boolean contains(float x,float y){return x>=left&&x<=right&&y>=top&&y<=bottom;}
         float centerX(){return (left+right)/2;}
         float centerY(){return (top+bottom)/2;}
     }
     final float unit,dpadX,dpadY,dpadRadius;
     final Button[] buttons;
+    final boolean mtool;
 
-    VirtualPadLayout(int width,int height,float density){
-        unit=Math.max(.01f,Math.min(density,Math.min(width/480f,height/320f)));
+    VirtualPadLayout(int width,int height,float density){this(width,height,density,false);}
+    VirtualPadLayout(int width,int height,float density,boolean mtool){
+        this.mtool=mtool;
+        float base=Math.min(density,Math.min(width/480f,height/320f));
+        unit=Math.max(.01f,mtool?Math.min(base*1.3f,Math.min(width/400f,height/270f)):base);
+        if(mtool){
+            dpadX=100*unit;dpadY=height-90*unit;dpadRadius=80*unit;
+            buttons=new Button[]{
+                key("Esc",KeyEvent.KEYCODE_ESCAPE,50*unit,28*unit,16*unit),
+                key("W",KeyEvent.KEYCODE_W,20*unit,56*unit,14*unit),
+                key("E",KeyEvent.KEYCODE_E,92*unit,40*unit,16*unit),
+                key("F2",KeyEvent.KEYCODE_F2,60*unit,68*unit,16*unit),
+                key("Q",KeyEvent.KEYCODE_Q,32*unit,100*unit,18*unit),
+                key("Ctrl",KeyEvent.KEYCODE_CTRL_LEFT,20*unit,height-28*unit,18*unit),
+                key("Z",KeyEvent.KEYCODE_Z,width-140*unit,height-92*unit,24*unit),
+                key("X",KeyEvent.KEYCODE_X,width-80*unit,height-104*unit,18*unit),
+                key("C",KeyEvent.KEYCODE_C,width-80*unit,height-156*unit,14*unit),
+                key("D",KeyEvent.KEYCODE_D,width-28*unit,height-156*unit,14*unit),
+                key("S",KeyEvent.KEYCODE_S,width-20*unit,height-120*unit,16*unit),
+                key("A",KeyEvent.KEYCODE_A,width-20*unit,height-76*unit,16*unit),
+                key("Shift",KeyEvent.KEYCODE_SHIFT_LEFT,width-44*unit,height-28*unit,20*unit),
+                key("Ctrl",KeyEvent.KEYCODE_CTRL_LEFT,width-100*unit,height-20*unit,18*unit)
+            };
+            return;
+        }
         dpadX=100*unit;dpadY=height-94*unit;dpadRadius=66*unit;
         float right=width-100*unit,cy=height-94*unit,gap=48*unit,r=26*unit;
         buttons=new Button[]{
@@ -26,12 +53,28 @@ final class VirtualPadLayout {
         };
     }
     private static Button circle(String label,int index,float x,float y,float r){return new Button(label,index,x-r,y-r,x+r,y+r,true);}
+    private static Button key(String label,int key,float x,float y,float r){return new Button(label,-1,x-r,y-r,x+r,y+r,true,key);}
     private static Button rect(String label,int index,float x,float y,float w,float h){return new Button(label,index,x,y,x+w,y+h,false);}
-    boolean inDpad(float x,float y){return Math.abs(x-dpadX)<=dpadRadius&&Math.abs(y-dpadY)<=dpadRadius;}
-    boolean contains(float x,float y){return inDpad(x,y)||maskAt(x,y)!=0;}
+    boolean inDpad(float x,float y){return mtool?Math.hypot(x-dpadX,y-dpadY)<=dpadRadius:Math.abs(x-dpadX)<=dpadRadius&&Math.abs(y-dpadY)<=dpadRadius;}
+    Button buttonAt(float x,float y){
+        for(Button button:buttons)if(button.contains(x,y)&&(!mtool||Math.hypot(x-button.centerX(),y-button.centerY())<=(button.right()-button.left())/2))return button;
+        return null;
+    }
+    boolean contains(float x,float y){return inDpad(x,y)||buttonAt(x,y)!=null;}
+    int keyAt(float x,float y){Button button=buttonAt(x,y);return button==null?0:button.key();}
     int maskAt(float x,float y){
-        for(Button button:buttons)if(button.contains(x,y))return 1<<button.index();
+        Button button=buttonAt(x,y);
+        if(button!=null)return button.index()<0?0:1<<button.index();
         if(!inDpad(x,y))return 0;
+        if(mtool){
+            float dx=x-dpadX,dy=y-dpadY;
+            if(Math.hypot(dx,dy)<18*unit)return 0;
+            int sector=Math.floorMod((int)Math.round(Math.atan2(dy,dx)/(Math.PI/4)),8);
+            return switch(sector){
+                case 0 -> 1<<15;case 1 -> (1<<15)|(1<<13);case 2 -> 1<<13;case 3 -> (1<<13)|(1<<14);
+                case 4 -> 1<<14;case 5 -> (1<<14)|(1<<12);case 6 -> 1<<12;default -> (1<<12)|(1<<15);
+            };
+        }
         int mask=0;float dx=x-dpadX,dy=y-dpadY,dead=18*unit;
         if(dx < -dead)mask|=1<<14;else if(dx>dead)mask|=1<<15;
         if(dy < -dead)mask|=1<<12;else if(dy>dead)mask|=1<<13;

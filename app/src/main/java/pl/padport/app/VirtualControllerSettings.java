@@ -8,6 +8,10 @@ import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
+import android.view.View;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,6 +25,13 @@ final class VirtualControllerSettings {
     private static final int DEFAULT_TRANSPARENCY=50;
     private static File flag(Context context){return new File(context.getFilesDir(),"on-screen-controller.enabled");}
     private static File transparencyFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.transparency");}
+    private static File layoutFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.layout");}
+    static boolean mtoolLayout(Context context){return readLayout(layoutFile(context));}
+    static boolean readLayout(File file){
+        try{return "mtool".equals(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8).trim());}
+        catch(IOException e){return false;}
+    }
+    static void writeLayout(File file,boolean mtool) throws IOException {writeSetting(file,mtool?"mtool":"default");}
     static boolean enabled(Context context){return flag(context).isFile();}
     static int transparency(Context context){return readTransparency(transparencyFile(context));}
     static float alpha(Context context){return alphaFor(transparency(context));}
@@ -31,9 +42,12 @@ final class VirtualControllerSettings {
         catch(IOException|NumberFormatException e){return DEFAULT_TRANSPARENCY;}
     }
     static void writeTransparency(File file,int value) throws IOException {
+        writeSetting(file,Integer.toString(clampTransparency(value)));
+    }
+    private static void writeSetting(File file,String value) throws IOException {
         File tmp=new File(file+".tmp");
         try{
-            Files.write(tmp.toPath(),Integer.toString(clampTransparency(value)).getBytes(StandardCharsets.UTF_8));
+            Files.write(tmp.toPath(),value.getBytes(StandardCharsets.UTF_8));
             try{Files.move(tmp.toPath(),file.toPath(),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}
             catch(AtomicMoveNotSupportedException e){Files.move(tmp.toPath(),file.toPath(),StandardCopyOption.REPLACE_EXISTING);}
         }finally{Files.deleteIfExists(tmp.toPath());}
@@ -76,6 +90,31 @@ final class VirtualControllerSettings {
             }
             public void onStartTrackingTouch(SeekBar bar){dragging=true;}
             public void onStopTrackingTouch(SeekBar bar){dragging=false;persist(bar);}
+        });
+        return panel;
+    }
+    static LinearLayout layoutControl(Activity activity,Runnable changed){
+        LinearLayout panel=Ui.column(activity);
+        panel.addView(Ui.text(activity,R.string.virtual_controller_layout,16,Ui.TEXT));
+        Spinner selector=new Spinner(activity,Spinner.MODE_DROPDOWN);
+        ArrayAdapter<String> adapter=new ArrayAdapter<>(activity,android.R.layout.simple_spinner_item,
+            new String[]{activity.getString(R.string.virtual_layout_default),activity.getString(R.string.virtual_layout_mtool)});
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        selector.setAdapter(adapter);selector.setSelection(mtoolLayout(activity)?1:0);
+        selector.setContentDescription(activity.getString(R.string.virtual_controller_layout));
+        selector.setMinimumHeight(Ui.dp(activity,48));
+        panel.addView(selector,new LinearLayout.LayoutParams(-1,-2));
+        selector.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onItemSelected(AdapterView<?> parent,View view,int position,long id){
+                boolean mtool=position==1;
+                if(mtool==mtoolLayout(activity))return;
+                try{writeLayout(layoutFile(activity),mtool);changed.run();}
+                catch(IOException e){
+                    selector.setSelection(mtoolLayout(activity)?1:0);
+                    Toast.makeText(activity,R.string.controller_setting_error,Toast.LENGTH_LONG).show();
+                }
+            }
+            public void onNothingSelected(AdapterView<?> parent){}
         });
         return panel;
     }

@@ -27,6 +27,7 @@ public class ControllerActivity extends LocalizedActivity {
         root.addView(Ui.text(this,R.string.controller_subtitle,15,Ui.ACCENT_TEXT));
         root.addView(new ControllerOutputPanel(this,()->hub.refresh()));
         root.addView(VirtualControllerSettings.checkbox(this,enabled->{}));
+        root.addView(VirtualControllerSettings.layoutControl(this,()->{}));
         root.addView(VirtualControllerSettings.transparencyControl(this));
         root.addView(Ui.text(this,R.string.virtual_controller_hint,14,Ui.MUTED));
         root.addView(Ui.text(this,R.string.keyboard_mapping_hint,14,Ui.MUTED));

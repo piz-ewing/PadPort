@@ -1,5 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+    <string name="virtual_controller_layout">按键布局</string>
+    <string name="virtual_layout_default">默认风格</string>
+    <string name="virtual_layout_mtool">mtool 风格</string>
     <string name="ui_language">zh</string>
     <string name="dual_screen_option">%1$s · 双屏界面</string>
     <string name="ttm_dual_hint">在另一块屏幕查看当前进度的人物介绍、笔记和物品。</string>

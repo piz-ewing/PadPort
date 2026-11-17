@@ -276,6 +276,7 @@ public class RgssActivity extends SDLActivity {
             public float button(int index) { return controllers.button(index); }
             public float axis(int index) { return controllers.axis(index); }
         });
+        if(nativeRunning&&!controllers.keyboardMode())wanted.addAll(controllers.virtualPad.keys());
         for (int key : KeyboardMapping.ordered(held,false)) if (!wanted.contains(key)) { SDLActivity.onNativeKeyUp(key); held.remove(key); }
         for (int key : KeyboardMapping.ordered(wanted,true)) if (held.add(key)) SDLActivity.onNativeKeyDown(key);
     }
@@ -300,6 +301,7 @@ public class RgssActivity extends SDLActivity {
             getString(R.string.diagnostics_copy_log), getString(R.string.rgss_exit_game)};
         LinearLayout settings=Ui.column(this);
         settings.addView(VirtualControllerSettings.checkbox(this,enabled->refreshVirtualController()));
+        settings.addView(VirtualControllerSettings.layoutControl(this,this::refreshVirtualController));
         settings.addView(DualScreenOptions.controls(this,Library.get(this,gameId),()->{}));
         menu = Ui.menuDialog(this,title,items,settings, (d, n) -> {
             if (n == 1) {

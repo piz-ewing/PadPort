@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="virtual_controller_layout">Układ przycisków</string>
+    <string name="virtual_layout_default">Styl domyślny</string>
+    <string name="virtual_layout_mtool">Styl mtool</string>
     <string name="dual_screen_option">%1$s — interfejs dwuekranowy</string>
     <string name="ttm_dual_hint">Zebrane notatki, przedmioty i biogramy aktualnych postaci na drugim ekranie. Notatnik korzysta z bieżącego stanu gry.</string>
     <string name="dual_screen_hint">Stan drużyny i ekwipunek na drugim ekranie. Ustawienie jest zapamiętywane dla tej gry.</string>
