@@ -153,4 +153,6 @@
     <string name="import_directory_details">Skopiuj zapisy z folderu save gry (zwykle www/save) do PadPort. Pasujące zapisy w aplikacji zostaną zastąpione, a gra uruchomi się ponownie. Zapisy MV wymagają zgodnego identyfikatora silnika; tytuły rozdziałów pozostaną bez zmian, a tożsamość gry zostanie zapisana osobno. Używaj zapisów ze zgodnej wersji tej gry. Pliki źródłowe pozostaną bez zmian.</string>
     <string name="export_directory_details">Skopiuj zapisane stany z PadPort do folderu save gry (zwykle www/save). Pasujące pliki zostaną zastąpione. Bieżący niezapisany postęp nie zostanie zapisany.</string>
     <string name="directory_saves_exported">Wyeksportowano pliki zapisów do folderu gry: %1$d.</string>
+    <string name="player_debug">Debugowanie gry</string>
+    <string name="player_debug_details">Włącza debugowanie strony przez ADB i zbieranie stanu gry. GeckoView: Firefox about:debugging; WebView: Chrome chrome://inspect. Działa od razu, także w wersji release. Wyłącz po zakończeniu.</string>
 </resources>

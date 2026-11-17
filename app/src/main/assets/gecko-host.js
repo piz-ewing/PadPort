@@ -15,6 +15,7 @@
         if(command==='dual-disable'){if(window.LookOutsideDual)LookOutsideDual.disable();if(window.FearHungerDual)FearHungerDual.disable();if(window.ElderfieldDual)ElderfieldDual.disable();return;}
         if (command === 'pause') pad.pause();
         else if (command === 'resume') pad.resume();
+        else if (command === 'debug:true' || command === 'debug:false') window.PadPortDebug.setEnabled(command === 'debug:true');
         else if (command === 'importDirectorySaves') window.PadPortSaveTransfer.transfer('import');
         else if (command === 'exportDirectorySaves') window.PadPortSaveTransfer.transfer('export');
         else if (command === 'exportSaves') pad.exportSaves();
@@ -35,6 +36,7 @@
         dualSnapshot: payload => post('dual-snapshot',payload),
         snapshot: () => snapshot,
         log: message => post('log', message),
+        debugState: state => post('debug-state',state),
         exportReady: payload => post('export', payload),
         importReady: () => post('imported', ''),
         directoryExportReady: count => post('directory-exported', count),

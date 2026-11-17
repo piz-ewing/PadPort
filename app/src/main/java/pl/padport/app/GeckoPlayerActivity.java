@@ -4,7 +4,6 @@ import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -121,13 +120,13 @@ public class GeckoPlayerActivity extends LocalizedActivity {
         controllers.onChange = () -> { server.publish(controllers.snapshot()); updateKeyboard(); };
         server.publish(controllers.snapshot());
         if (runtime == null) {
-            boolean debuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
             GeckoRuntimeSettings.Builder settings = new GeckoRuntimeSettings.Builder()
-                .consoleOutput(true).remoteDebuggingEnabled(debuggable).javaScriptEnabled(true);
+                .consoleOutput(true).remoteDebuggingEnabled(PlayerDebugSettings.remoteEnabled(this)).javaScriptEnabled(true);
             String config = writeRuntimeConfig();
             if (config != null) settings.configFilePath(config);
             runtime = GeckoRuntime.create(getApplicationContext(), settings.build());
         }
+        runtime.getSettings().setRemoteDebuggingEnabled(PlayerDebugSettings.remoteEnabled(this));
         session = new GeckoSession(new GeckoSessionSettings.Builder()
             .viewportMode(GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
             .userAgentMode(GeckoSessionSettings.USER_AGENT_MODE_MOBILE)
@@ -347,6 +346,10 @@ public class GeckoPlayerActivity extends LocalizedActivity {
         settings.addView(VirtualControllerSettings.checkbox(this, enabled -> refreshVirtualController()));
         settings.addView(VirtualControllerSettings.layoutControl(this,this::refreshVirtualController));
         settings.addView(DisplayRate.checkbox(this));
+        settings.addView(PlayerDebugSettings.controls(this,enabled->{
+            runtime.getSettings().setRemoteDebuggingEnabled(PlayerDebugSettings.remoteEnabled(this));
+            if(server!=null){server.debugState="";server.command("debug:"+enabled);}
+        }));
         settings.addView(DualScreenOptions.controls(this, Library.get(this, source.id), () -> {}));
         menu = Ui.menuDialog(this, source.title + " · GeckoView", items, settings, (d, n) -> {
             if (n == 1) startActivity(new Intent(this, ControllerActivity.class));
@@ -423,12 +426,14 @@ public class GeckoPlayerActivity extends LocalizedActivity {
     private void showLog() {
         String content;
         synchronized (this) { content = String.join("\n", logs); }
+        if(server!=null&&!server.debugState.isEmpty())content+="\n\n"+server.debugState;
+        final String report=content;
         TextView text = Ui.text(this, content, 12, Ui.TEXT);
         text.setTextIsSelectable(true);
         ScrollView scroll = new ScrollView(this);
         scroll.addView(text);
         new AlertDialog.Builder(this).setTitle(R.string.game_diagnostics).setView(scroll).setPositiveButton(R.string.close, null)
-            .setNeutralButton(R.string.copy, (d, n) -> ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("PadPort log", content)))
+            .setNeutralButton(R.string.copy, (d, n) -> ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("PadPort log", report)))
             .show();
     }
 

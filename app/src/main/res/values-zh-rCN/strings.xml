@@ -166,4 +166,6 @@
     <string name="import_directory_details">将本游戏 save 目录（通常为 www/save）中的存档复制到 PadPort，覆盖应用内的同名存档并重启游戏。MV 存档要求引擎标识一致；章节标题保持不变，游戏身份单独记录。请使用本游戏兼容版本的存档。原目录文件保持不变。</string>
     <string name="export_directory_details">将本游戏已经保存在 PadPort 内的存档复制到游戏的 save 目录（通常为 www/save），覆盖目录中的同名文件。此操作不会保存当前尚未存档的进度。</string>
     <string name="directory_saves_exported">已向游戏目录导出 %1$d 个存档文件。</string>
+    <string name="player_debug">游戏调试</string>
+    <string name="player_debug_details">通过 ADB 连接页面调试器并采集运行状态。GeckoView 使用 Firefox 的 about:debugging，WebView 使用 Chrome 的 chrome://inspect。Release 版也支持，开启后立即生效。调试完成后请关闭。</string>
 </resources>

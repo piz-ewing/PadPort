@@ -35,6 +35,7 @@ final class GameHttpServer implements Closeable {
     private final Set<BlockingQueue<String>> listeners = ConcurrentHashMap.newKeySet();
     private volatile String snapshot = IDLE;
     private volatile boolean closed;
+    volatile String debugState="";
     Consumer<String> exported = payload -> {}, saveError = message -> {};
     Runnable imported = () -> {};
     java.util.function.IntConsumer directoryExported = count -> {};
@@ -239,17 +240,25 @@ final class GameHttpServer implements Closeable {
                 case "__padport__/dual-snapshot": dualSnapshot.accept(new String(r.body,StandardCharsets.UTF_8));bytes(out,r,"text/plain",new byte[0]);return true;
                 case "__padport__/events": return events(out);
                 case "__padport__/log": log.accept(new String(r.body, StandardCharsets.UTF_8)); bytes(out, r, "text/plain", new byte[0]); return true;
+                case "__padport__/debug-state":
+                    if(!PlayerDebugSettings.enabled(context)){error(out,r,403,"Debugging disabled");return true;}
+                    if("GET".equals(r.method)){bytes(out,r,"application/json",(debugState.isEmpty()?"{}":debugState).getBytes(StandardCharsets.UTF_8));return true;}
+                    if(!"POST".equals(r.method)){error(out,r,405,"Method Not Allowed");return true;}
+                    if(r.body.length>32768){error(out,r,413,"Report too large");return true;}
+                    debugState=new String(r.body,StandardCharsets.UTF_8);
+                    bytes(out,r,"text/plain",new byte[0]);return true;
                 case "__padport__/export": exported.accept(new String(r.body, StandardCharsets.UTF_8)); bytes(out, r, "text/plain", new byte[0]); return true;
                 case "__padport__/imported": imported.run(); bytes(out, r, "text/plain", new byte[0]); return true;
                 case "__padport__/save-error": saveError.accept(new String(r.body, StandardCharsets.UTF_8)); bytes(out, r, "text/plain", new byte[0]); return true;
                 case "__padport__/bridge.js": {
                     JSONObject config = new JSONObject().put("title", source.title).put("engine", source.engine)
                         .put("language", AppLanguage.code(context)).put("renderer", "gecko")
-                        .put("dualScreenProfile",DualScreenProfile.identify(source.title,source.engine));
+                        .put("dualScreenProfile",DualScreenProfile.identify(source.title,source.engine))
+                        .put("debug",PlayerDebugSettings.enabled(context));
                     GameCompat.config(config,source);
                     String js = "window.__PADPORT_CONFIG__=" + config + ";\n" + new String(asset("gecko-host.js"), StandardCharsets.UTF_8) + "\n"
                         + new String(asset("node-buffer.js"), StandardCharsets.UTF_8) + "\n"
-                        + new String(asset("ui-strings.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("bridge.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("save-transfer.js"), StandardCharsets.UTF_8)
+                        + new String(asset("ui-strings.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("bridge.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("runtime-debug.js"),StandardCharsets.UTF_8) + "\n" + new String(asset("save-transfer.js"), StandardCharsets.UTF_8)
                         + "\n" + new String(asset("game-compat.js"),StandardCharsets.UTF_8)
                         + "\n" + new String(asset("look-outside-dual.js"),StandardCharsets.UTF_8)
                         + "\n" + new String(asset("fear-and-hunger-dual.js"),StandardCharsets.UTF_8)

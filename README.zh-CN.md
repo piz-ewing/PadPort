@@ -159,6 +159,7 @@ GeckoView 默认启用，是因为部分设备（例如 AYN Thor）的 Android �
 
 ## 开发者文档
 
+- [MV/MZ 游戏调试](docs/DEBUGGING.md)：运行中开启页面调试、采集运行状态及排查卡住问题（英文）。
 - [DEVELOPMENT.md](DEVELOPMENT.md)：工作原理、构建、测试及选择 GeckoView 的原因（波兰语）。
 - [RGSS.md](RGSS.md)：RPG Maker XP/VX/VX Ace 支持（波兰语）。
 - [DUAL_SCREEN.md](DUAL_SCREEN.md)：添加副屏适配（波兰语）。

@@ -249,6 +249,7 @@ second screen (party, map, inventory, notes...).
 
 ## For developers
 
+- [Debugging MV/MZ games](docs/DEBUGGING.md) - live debugging and runtime reports
 - [DEVELOPMENT.md](DEVELOPMENT.md) - how it works, building, tests, why GeckoView (Polish)
 - [RGSS.md](RGSS.md) - RPG Maker XP / VX / VX Ace support (Polish)
 - [DUAL_SCREEN.md](DUAL_SCREEN.md) - adding second-screen profiles (Polish)

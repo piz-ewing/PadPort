@@ -63,11 +63,12 @@ final class GameWebClient extends WebViewClient {
             if(path.equals("__padport__/bridge.js")) {
                 JSONObject config=new JSONObject().put("title",source==null?context.getString(R.string.controller_tester):source.title)
                     .put("engine",source==null?"diagnostics":source.engine).put("language",AppLanguage.code(context))
-                    .put("dualScreenProfile",source==null?"":DualScreenProfile.identify(source.title,source.engine));
+                    .put("dualScreenProfile",source==null?"":DualScreenProfile.identify(source.title,source.engine))
+                    .put("debug",PlayerDebugSettings.enabled(context));
                 GameCompat.config(config,source);
                 return bytes("application/javascript",("window.__PADPORT_CONFIG__="+config+";\n"+
                     new String(asset("node-buffer.js"),StandardCharsets.UTF_8)+"\n"+
-                    new String(asset("ui-strings.js"),StandardCharsets.UTF_8)+"\n"+new String(asset("bridge.js"),StandardCharsets.UTF_8)+"\n"+new String(asset("save-transfer.js"),StandardCharsets.UTF_8)+"\n"+
+                    new String(asset("ui-strings.js"),StandardCharsets.UTF_8)+"\n"+new String(asset("bridge.js"),StandardCharsets.UTF_8)+"\n"+new String(asset("runtime-debug.js"),StandardCharsets.UTF_8)+"\n"+new String(asset("save-transfer.js"),StandardCharsets.UTF_8)+"\n"+
                     new String(asset("game-compat.js"),StandardCharsets.UTF_8)+"\n"+
                     new String(asset("look-outside-dual.js"),StandardCharsets.UTF_8)+"\n"+
                     new String(asset("fear-and-hunger-dual.js"),StandardCharsets.UTF_8)+"\n"+

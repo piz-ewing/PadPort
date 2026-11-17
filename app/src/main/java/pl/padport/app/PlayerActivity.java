@@ -77,7 +77,7 @@ public class PlayerActivity extends LocalizedActivity {
         settings.setMediaPlaybackRequiresUserGesture(false);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);settings.setSupportMultipleWindows(false);
         settings.setBuiltInZoomControls(false);settings.setSupportZoom(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        if((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0) WebView.setWebContentsDebuggingEnabled(true);
+        WebView.setWebContentsDebuggingEnabled(PlayerDebugSettings.remoteEnabled(this));
         web.addJavascriptInterface(new Host(),"PadPortHost");
         GameWebClient client=new GameWebClient(this,source,gameMarkers,this::log);
         client.loaded=()->{webReady=true;if(foreground && menu==null)resumeGame();};
@@ -154,6 +154,10 @@ public class PlayerActivity extends LocalizedActivity {
         settings.addView(VirtualControllerSettings.layoutControl(this,this::refreshVirtualController));
         if(source!=null)settings.addView(DisplayRate.checkbox(this));
         if(source!=null)settings.addView(DualScreenOptions.controls(this,Library.get(this,source.id),()->{}));
+        settings.addView(PlayerDebugSettings.controls(this,enabled->{
+            WebView.setWebContentsDebuggingEnabled(PlayerDebugSettings.remoteEnabled(this));
+            debugState="";js("PadPortDebug.setEnabled("+enabled+")");
+        }));
         menu=Ui.menuDialog(this,source==null?getString(R.string.controller_tester):source.title,options,settings,(dialog,n)->{
             if(n==1)startActivity(new Intent(this,ControllerActivity.class));
             else if(source!=null && n==2){exporting=true;js("PadPort.exportSaves()");}
@@ -171,15 +175,21 @@ public class PlayerActivity extends LocalizedActivity {
             .setNegativeButton(R.string.cancel, null).show();
     }
     private synchronized void log(String text){logs.add(text.length()>2000?text.substring(0,2000):text);while(logs.size()>120)logs.remove();}
+    private volatile String debugState="";
     private void showLog(){
         String content;
         synchronized(this){content=String.join("\n",logs);}
+        if(!debugState.isEmpty())content+="\n\n"+debugState;
+        final String report=content;
         TextView text=Ui.text(this,content,12,Ui.TEXT);text.setTextIsSelectable(true);ScrollView scroll=new ScrollView(this);scroll.addView(text);
         new AlertDialog.Builder(this).setTitle(R.string.game_diagnostics).setView(scroll).setPositiveButton(R.string.close,null)
-            .setNeutralButton(R.string.copy,(d,n)->((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("PadPort log",content))).show();
+            .setNeutralButton(R.string.copy,(d,n)->((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("PadPort log",report))).show();
     }
     private void error(String message){log(message);new AlertDialog.Builder(this).setTitle(R.string.app_name).setMessage(message).setPositiveButton(R.string.ok,null).show();}
     public final class Host {
+        @JavascriptInterface public void debugState(String state){
+            if(PlayerDebugSettings.enabled(PlayerActivity.this)&&state.length()<=32768)debugState=state;
+        }
         @JavascriptInterface public void directoryTransfer(String request, int id) {
             GameSaveTransfer current=saveTransfer;
             if(current==null)return;
