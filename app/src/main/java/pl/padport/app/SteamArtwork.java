@@ -59,10 +59,7 @@ final class SteamArtwork {
         for (Map.Entry<String, GameSource.Entry> e : source.entries.entrySet()) {
             String path = e.getKey();
             if (!path.equalsIgnoreCase("steam_appid.txt") && !path.equalsIgnoreCase(source.prefix + "steam_appid.txt")) continue;
-            // Read by document id: for MV/MZ the file sits next to www/, outside source.prefix.
-            android.net.Uri uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(source.tree, e.getValue().documentId());
-            try (InputStream in = source.context.getContentResolver().openInputStream(uri)) {
-                if (in == null) return null;
+            try (InputStream in = source.open(e.getValue())) {
                 return appIdFromFile(new String(GameSource.readBounded(in, 64), StandardCharsets.US_ASCII));
             } catch (IOException | SecurityException ignored) { return null; }
         }

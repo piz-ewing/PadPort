@@ -77,8 +77,9 @@ final class GameSaveTransfer {
 
     private Document directory(boolean create) throws IOException {
         Document root = new Document(DocumentsContract.getTreeDocumentId(source.tree), "", true);
-        if (!source.prefix.isEmpty()) {
-            root = children(root).get(source.prefix.substring(0, source.prefix.length() - 1).toLowerCase(Locale.ROOT));
+        String prefix = source.writablePrefix();
+        if (!prefix.isEmpty()) {
+            root = children(root).get(prefix.substring(0, prefix.length() - 1).toLowerCase(Locale.ROOT));
             if (root == null || !root.directory()) throw new IOException("Game directory is missing");
         }
         Document folder = children(root).get("save");

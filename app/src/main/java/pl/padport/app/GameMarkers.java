@@ -53,8 +53,9 @@ final class GameMarkers {
 
     private Document root() throws IOException {
         Document current = new Document(DocumentsContract.getTreeDocumentId(source.tree), "", true);
-        if (!source.prefix.isEmpty()) {
-            current = find(current, source.prefix.substring(0, source.prefix.length() - 1));
+        String prefix = source.writablePrefix();
+        if (!prefix.isEmpty()) {
+            current = find(current, prefix.substring(0, prefix.length() - 1));
             if (current == null || !current.directory()) throw new IOException("Game directory is missing");
         }
         return current;

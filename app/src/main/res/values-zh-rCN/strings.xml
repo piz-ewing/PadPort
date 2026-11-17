@@ -16,7 +16,7 @@
     <string name="dual_screen_enable">启用</string>
     <string name="dual_screen_not_now">暂不启用</string>
     <string name="tagline">在安卓设备上运行 RPG Maker 游戏</string>
-    <string name="library_hint">选择原游戏目录：MV/MZ 选择含 index.html 或 www 的目录；XP/VX/VX Ace 选择含 Game.ini 的目录。游戏文件保留在原处。</string>
+    <string name="library_hint">选择原游戏目录：MV/MZ 选择含 index.html、www 或 app.asar 的目录；XP/VX/VX Ace 选择含 Game.ini 的目录。游戏文件保留在原处。</string>
     <string name="indexing">正在建立文件索引…</string>
     <string name="add_game">＋ 添加游戏目录</string>
     <string name="controllers_button">控制器 · 按键映射与测试</string>
@@ -111,7 +111,7 @@
     <string name="controller_idle">请连接控制器并按下按钮。</string>
     <string name="axis_event">%1$s · 轴 %2$s · 方向 %3$s、%4$s</string>
     <string name="folder_read_error">无法读取游戏目录。</string>
-    <string name="index_missing">未找到游戏。MV/MZ 请选择含 index.html 或 www 的目录，XP/VX/VX Ace 请选择含 Game.ini 的目录。</string>
+    <string name="index_missing">未找到游戏。MV/MZ 请选择含 index.html、www、app.asar 或 resources/app.asar 的目录，XP/VX/VX Ace 请选择含 Game.ini 的目录。</string>
     <string name="unsupported_engine">此目录不包含支持的 RPG Maker MV/MZ/XP/VX/VX Ace 游戏。</string>
     <string name="engine_gecko_option">使用 GeckoView（64 位引擎）</string>
     <string name="engine_gecko_hint">推荐大体积游戏使用。关闭后改用安卓系统 WebView，此设置按游戏保存。</string>

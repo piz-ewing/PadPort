@@ -15,6 +15,7 @@ your game files.
 ## What it can do
 
 - Plays **RPG Maker MV and MZ** games straight from their original PC folder.
+- Reads MV/MZ games inside **app.asar** archives on demand, including archives larger than 4 GB.
 - Plays **RPG Maker XP, VX and VX Ace** games too (experimental).
 - Works with **Bluetooth and USB controllers** and with the built-in
   controls of handhelds like the AYN Thor.
@@ -57,6 +58,18 @@ It never touches game data or saves, and asks before deleting anything.
 
 When the game gets an update on PC, copy the new files over and use
 **Refresh files after a game update** in the game's ⋮ menu.
+
+For an ASAR-packaged MV/MZ game, select the game folder containing
+`resources/app.asar`, or the folder containing `app.asar` directly. Keep any
+`app.asar.unpacked` folder beside the archive. PadPort locates a unique MV/MZ
+web entry point inside the archive and reads individual files without extracting
+the game. Local storage must support random access. Electron main/preload scripts
+and desktop native modules are not executed. Their APIs may require additional
+compatibility work for individual games.
+
+ASAR archives remain read-only. Normal saves use browser storage as usual; the
+manual directory import/export actions use `save` beside the selected game folder
+contents. Select the same folder each time to retain the same browser storage.
 
 ## Controls
 

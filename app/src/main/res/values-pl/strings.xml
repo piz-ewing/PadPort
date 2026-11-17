@@ -16,7 +16,7 @@
     <string name="dual_screen_not_now">Nie teraz</string>
     <string name="ui_language">pl</string>
     <string name="tagline">Graj w gry z RPG Magera na Androidzie!</string>
-    <string name="library_hint">Otwórz oryginalny folder gry: RPG Maker MV/MZ (index.html albo www) lub XP/VX/VX Ace (Game.ini). Pliki gry pozostają na swoim miejscu.</string>
+    <string name="library_hint">Otwórz oryginalny folder gry: RPG Maker MV/MZ (index.html, www lub app.asar) lub XP/VX/VX Ace (Game.ini). Pliki gry pozostają na swoim miejscu.</string>
     <string name="indexing">Indeksuję pliki…</string>
     <string name="add_game">＋  Dodaj folder gry</string>
     <string name="controllers_button">Kontrolery · mapowanie i test</string>
@@ -111,7 +111,7 @@
     <string name="controller_idle">Podłącz pad i naciśnij przycisk.</string>
     <string name="axis_event">%1$s · osie %2$s · hat %3$s, %4$s</string>
     <string name="folder_read_error">Nie można odczytać folderu gry.</string>
-    <string name="index_missing">Nie znaleziono gry. Wybierz folder z index.html lub www (MV/MZ) albo z Game.ini (XP/VX/VX Ace).</string>
+    <string name="index_missing">Nie znaleziono gry. Wybierz folder z index.html, www, app.asar lub resources/app.asar (MV/MZ) albo z Game.ini (XP/VX/VX Ace).</string>
     <string name="unsupported_engine">Ten folder nie zawiera gry RPG Maker MV/MZ/XP/VX/VX Ace.</string>
     <string name="engine_gecko_option">Używaj GeckoView (silnik 64-bitowy)</string>
     <string name="engine_gecko_hint">Zalecane: więcej pamięci dla dużych gier. Wyłącz, aby zamiast tego używać Android System WebView. Ustawienie jest zapamiętywane dla tej gry.</string>

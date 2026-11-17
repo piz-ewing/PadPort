@@ -18,7 +18,7 @@
     <!-- Resolved alongside native text, so WebView uses Android's chosen language. -->
     <string name="ui_language">en</string>
     <string name="tagline">Play RPG Maker games on Android!</string>
-    <string name="library_hint">Open an original game folder: RPG Maker MV/MZ (index.html or www) or XP/VX/VX Ace (Game.ini). Your game files stay in place.</string>
+    <string name="library_hint">Open an original game folder: RPG Maker MV/MZ (index.html, www, or app.asar) or XP/VX/VX Ace (Game.ini). Your game files stay in place.</string>
     <string name="indexing">Indexing files…</string>
     <string name="add_game">＋  Add game folder</string>
     <string name="controllers_button">Controllers · mapping and test</string>
@@ -113,7 +113,7 @@
     <string name="controller_idle">Connect a controller and press a button.</string>
     <string name="axis_event">%1$s · axes %2$s · hat %3$s, %4$s</string>
     <string name="folder_read_error">Unable to read the game folder.</string>
-    <string name="index_missing">No game was found. Select the folder with index.html or www (MV/MZ), or with Game.ini (XP/VX/VX Ace).</string>
+    <string name="index_missing">No game was found. Select the folder with index.html, www, app.asar or resources/app.asar (MV/MZ), or with Game.ini (XP/VX/VX Ace).</string>
     <string name="unsupported_engine">This folder does not contain an RPG Maker MV/MZ/XP/VX/VX Ace game.</string>
     <string name="engine_gecko_option">Use GeckoView (64-bit engine)</string>
     <string name="engine_gecko_hint">Recommended: more memory for big games. Turn off to use the Android System WebView instead. This setting is saved for this game.</string>
