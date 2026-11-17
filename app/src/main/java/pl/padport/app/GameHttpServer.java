@@ -257,6 +257,7 @@ final class GameHttpServer implements Closeable {
                         .put("debug",PlayerDebugSettings.enabled(context));
                     GameCompat.config(config,source);
                     String js = "window.__PADPORT_CONFIG__=" + config + ";\n" + new String(asset("gecko-host.js"), StandardCharsets.UTF_8) + "\n"
+                        + new String(asset("audio-decode.js"), StandardCharsets.UTF_8) + "\n"
                         + new String(asset("node-buffer.js"), StandardCharsets.UTF_8) + "\n"
                         + new String(asset("ui-strings.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("bridge.js"), StandardCharsets.UTF_8) + "\n" + new String(asset("runtime-debug.js"),StandardCharsets.UTF_8) + "\n" + new String(asset("save-transfer.js"), StandardCharsets.UTF_8)
                         + "\n" + new String(asset("game-compat.js"),StandardCharsets.UTF_8)
