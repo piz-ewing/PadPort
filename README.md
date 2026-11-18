@@ -4,13 +4,52 @@
 
 ![PadPort — Play your RPG Maker games on Android.](docs/banner.jpg)
 
-[![Downloads](https://img.shields.io/github/downloads/mkaflowski/PadPort/total?style=for-the-badge&logo=github&label=Downloads&labelColor=1a1819&color=d16197)](https://github.com/mkaflowski/PadPort/releases)
-
 Play your **RPG Maker** games on Android with a controller.
 
 Copy the game folder from your PC to your phone, tablet or handheld, add it in
-PadPort and press Play. No converting, no PC needed. PadPort never changes
-your game files.
+PadPort and press Play. No conversion or running PC is needed. The game engine
+writes saves to its normal location through the player.
+
+## Refactored version: experimental
+
+This branch contains an experimental refactoring of PadPort, focused on making
+more games playable and improving how they feel to play. Four improvements drive
+the refactoring:
+
+- **Many game errors fixed:** fixes for startup, resource loading, graphics, audio
+  and input let some previously unplayable games start and continue playing.
+- **Better-looking, easier-to-use touch controls:** improved button layouts,
+  direct dragging to adjust joystick position and size, dragging origin and
+  optional input prediction.
+- **Smoother gameplay:** improvements to resource loading, file access and texture
+  handling reduce redundant work and blocking during loading and play.
+- **ASAR game support:** MV/MZ game resources inside `app.asar` are read on demand,
+  without extracting the whole archive first.
+
+MV/MZ playback now uses Android System WebView with a separate Node process,
+with diagnostics and live page debugging available. Second-screen support and
+the GeckoView playback path have been removed.
+
+Testing has been limited to local development and a small number of devices and
+games. Stability, performance and compatibility are not guaranteed. Back up saves
+before trying this version, and [open an Issue](../../issues/new) if something
+fails. See [Refactoring status](docs/REFACTORING.md) for changes and limitations.
+
+## Roadmap
+
+The next priorities are bug fixes and more responsive touch controls, alongside
+new features and improvements to the settings UI:
+
+- **Keep fixing issues:** address game compatibility, stuttering, audio and
+  resource-loading problems.
+- **More responsive touch buttons:** improve press, slide, release and multitouch
+  handling so combined actions such as moving and attacking feel more reliable.
+  The current touch response still needs improvement.
+- **Add an in-game trainer:** provide tools to view and adjust common game data.
+- **Improve the settings UI:** reorganize groups, layouts and interactions so
+  common options are easier to find and use.
+
+These are planned improvements and are not all implemented yet.
 
 ## What it can do
 
@@ -25,10 +64,11 @@ your game files.
 - **Keyboard mode** for games that only listen to the keyboard.
 - **Game library** with artwork from the game itself, from Steam, or your own
   picture.
-- **Save backups**: export your saves and import them again.
+- **File saves** for MV/MZ, using the engine's original format; RGSS retains
+  its ZIP save backup import and export.
 - **Chromium System WebView** for MV / MZ games, with a separate Node runtime
   for game files, modules, and local services. See [Browser runtime](#browser-runtime).
-- English and Polish, following your Android language.
+- English, Polish and Simplified Chinese, following your Android language.
 
 ## What you need
 
@@ -42,7 +82,7 @@ your game files.
 1. Download the APK from **[Releases](../../releases)** and install it.
    Android asks you to allow installing apps from this source - allow it.
 2. Copy the **whole game folder** from your PC to the device, for example to
-   `Download/Games/Look Outside`. If the game is in a ZIP, unpack it first.
+   `Download/Games/MyGame`. If the game is in a ZIP, unpack it first.
 3. Open PadPort, tap **Add game folder** and pick the game folder (the one with
    `index.html`, or the one that contains `www`). Allow access when asked.
 4. Tap **Play**.
@@ -57,15 +97,14 @@ When the game gets an update on PC, copy the new files over and use
 
 For an ASAR-packaged MV/MZ game, select the game folder containing
 `resources/app.asar`, or the folder containing `app.asar` directly. Keep any
-`app.asar.unpacked` folder beside the archive. PadPort locates a unique MV/MZ
-web entry point inside the archive and reads individual files without extracting
-the game. Local storage must support random access. Electron main/preload scripts
-and desktop native modules are not executed. Their APIs may require additional
-compatibility work for individual games.
+`app.asar.unpacked` folder beside the archive. The runtime reads files on demand
+and follows the package entry point. Packages that use Electron main/preload
+scripts run through a compatibility layer supporting a subset of Electron APIs.
+This is not a complete desktop Electron environment; arbitrary desktop native
+modules are unsupported. Local storage must support random access.
 
-ASAR archives remain read-only. Normal saves use browser storage as usual; the
-manual directory import/export actions use `save` beside the selected game folder
-contents. Select the same folder each time to retain the same browser storage.
+ASAR archives remain read-only. Saves must use a writable location outside the
+archive, as selected by the engine or package. See [Saves](#saves).
 
 ## Controls
 
@@ -94,6 +133,10 @@ Games can change these. If a button does nothing:
 **On-screen controller:** turn on **Show on-screen controller** in the
 controller settings or in the menu while playing. You can make it more or less
 see-through with the transparency slider.
+Choose a button layout from the dropdown. Open **Joystick size and position**
+to drag the joystick and resize it with its handle, then save. **Dragging origin**
+lets the base follow a finger beyond the outer buffer. Optional **Input prediction**
+adjusts invisible hit areas using recent input; it is off by default.
 
 **Keyboard mode:** some games only react to the keyboard. Switch the control
 mode to **Keyboard** and the controller will press keys instead (you can change
@@ -103,47 +146,31 @@ which key each button presses).
 
 - The game fills the screen and keeps its shape (black bars at the sides when
   the screen is wider than the game).
-- The small menu button hides after 5 seconds. Touch the screen or press the
-  Android Back button to bring it back.
-- From that menu you can **Export saved games**, **Import save backup**, show
-  the on-screen controller, copy a diagnostic
-  log, or go **Back to library**.
-- **Limit the screen to 60 Hz** (off by default, MV / MZ): RPG Maker games run
-  at 60 FPS, so on 90 / 120 Hz screens (e.g. AYN Thor) this saves battery. A
-  game's "unlimited" FPS option then means exactly 60.
+- Open the floating menu button or press Android Back to show the player menu.
+  The menu pauses the game while it is open.
+- In MV/MZ, the menu provides controller settings, touch controls, diagnostics,
+  game debugging and **Back to library**. RGSS retains its save backup actions.
+- **Limit the screen to 60 Hz** (off by default, MV/MZ) requests a compatible
+  display refresh rate. Android makes the final choice; this is not a guarantee
+  that the game renders at 60 FPS.
 
 ## Saves
 
-Save normally inside the game. PadPort keeps MV/MZ saves in the browser
-profile and RGSS saves in app storage. Removing a game from the library keeps
-its saves. Re-add the same folder with the same renderer to use them again.
+Save normally inside the game. MV/MZ uses file access through Node, with the
+game engine or plugin determining the directory and format. For a typical
+folder game this is its `save` directory, often `www/save`. The selected storage
+provider must allow writes. ASAR contents cannot be written; the package needs
+to place saves outside the archive.
 
-The in-game app menu also offers **Import saves from game folder** and
-**Export saves to game folder** for MV/MZ. These copy files once between the
-app and the game’s `save` directory (usually `www/save`). Importing replaces
-matching app saves and restarts the game; source files stay unchanged.
-Exporting replaces matching files after confirmation and needs write access
-to the game folder. It copies existing saves, not unsaved gameplay progress.
-Normal gameplay never synchronizes with that directory.
+The active MV/MZ player no longer offers the previous browser-storage backup
+or game-folder import/export workflow. Browser saves created by earlier versions
+are separate and are not automatically migrated. Keep an older backup before
+switching versions, and check saving and loading before a longer session.
 
-MV transfers include configuration, global metadata, numbered slots and their
-backups, using the game’s filename and browser-key rules. Plugin slots used
-through StorageManager are discovered as the game runs; filename-based slots
-are accepted when the engine confirms their mapping. Unmapped or conflicting
-files are reported before importing.
-MV plugins may use save-index titles as chapter labels. PadPort preserves these
-labels and records game identity separately for newly created and imported
-saves. Existing saves in the selected game's browser storage are recognized
-without rewriting them. Directory import requires matching engine identifiers;
-invalid indices fail before app saves are replaced. Slot payloads stay unchanged.
-Use saves from a compatible version of the selected game; recording identity
-does not establish save-data compatibility.
-MZ transfers use the game’s localforage keys and `.rmmzsave` files.
-The existing JSON backup import and export remain available.
-
-**Uninstalling PadPort or clearing its data deletes app-stored saves.**
-Export backups first. Moving the game folder changes its identity in PadPort;
-use an exported backup to move saves to a different folder.
+RGSS keeps saves in app storage and retains ZIP import/export from its player
+menu. Removing an RGSS game from the library keeps those saves; uninstalling
+the app or clearing its data deletes them. Back up app-stored saves and the
+game's writable save directory before updating or removing anything.
 
 ## Browser runtime
 
@@ -156,20 +183,14 @@ with the game folder across player restarts. Browser storage created by an
 earlier browser engine is separate and is not automatically migrated.
 
 
-## Games with extra fixes
+## Compatibility
 
-Some games use PC-only add-ons. PadPort carries small fixes for those it knows:
-
-| Game | RPG Maker | What PadPort fixes |
-| --- | --- | --- |
-| *Welcome to Elderfield* | MZ | Starts at all (its Steam and plugin-toggle add-ons stop it outside the PC version). NPC gift reactions work (gift tables are loaded). The in-game radio, including *The Weather Channel*, plays. |
-| Games using the **FOSSIL** plugin | MZ | FOSSIL rewrites its start page on PC; PadPort serves that page directly. |
-| Games that ask for **full screen** at start | MV / MZ | The request is answered as done - PadPort is already full screen - instead of stopping the game. |
-
-Folders copied from a PC usually also contain the Windows runtime (NW.js,
-Chromium, Steam libraries) - for *Welcome to Elderfield* about 540 MB. When you
-add an MV / MZ game, PadPort lists these files with their size and offers to
-delete them (game data and saves are never touched).
+The refactored runtime includes adaptations for desktop module requests,
+fullscreen behavior, fonts, bitmap lifetimes, texture uploads and audio loading.
+These address specific failure paths; they do not establish compatibility with
+every game or plugin. Windows executables and arbitrary desktop native modules
+do not run in this player. Game-specific compatibility claims from earlier
+versions need to be checked again on the refactored runtime.
 
 ## If something goes wrong
 
@@ -185,19 +206,26 @@ delete them (game data and saves are never touched).
 - Some MV / MZ games use special PC-only add-ons and may need extra support.
   Tell us which game it is.
 
-## Want a game supported?
+## Report a problem
 
 **[Open an issue](../../issues/new)** and tell us:
 
 - the game's name (and a Steam or itch.io link if there is one),
 - which RPG Maker it uses (MV, MZ, XP, VX or VX Ace), if you know,
 - your device and Android version,
+- the PadPort version and Android System WebView version,
 - what happens: for example it does not start, crashes at a certain place, or
   a button does not work,
+- steps to reproduce it, whether it happens every time, and whether an older
+  version behaved differently,
 - the log from **Diagnostics / copy log**, if the game starts at all.
+
+Review logs for private paths or tokens before posting. Do not attach game
+archives, copyrighted assets or personal save files to a public Issue.
 
 ## For developers
 
+- [Refactoring status](docs/REFACTORING.md) - changes, removals and validation limits
 - [Debugging MV/MZ games](docs/DEBUGGING.md) - live debugging and runtime reports
 - [DEVELOPMENT.md](DEVELOPMENT.md) - how it works, building, tests (Polish)
 - [RGSS.md](RGSS.md) - RPG Maker XP / VX / VX Ace support (Polish)

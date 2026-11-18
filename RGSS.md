@@ -1,7 +1,23 @@
 # Obsługa RPG Maker XP / VX / VX Ace (RGSS) w PadPort
 
-Stan na 29.09.2026. Dokument opisuje, co zostało zrobione, jak to działa,
-co jest sprawdzone i co zostało do zrobienia. Wersja eksperymentalna.
+## Status w przebudowanej wersji
+
+Aktualizacja: 18.11.2026. PadPort jest obecnie wersją eksperymentalną po
+przebudowie. Weryfikacja była ograniczona do lokalnego środowiska i wybranych
+urządzeń; nie ma gwarancji stabilności ani zgodności. RGSS zachowuje natywny
+silnik mkxp-z, osobny proces oraz import i eksport zapisów ZIP. Obsługa
+drugiego ekranu i jej zasoby zostały usunięte.
+
+Główna zmiana odtwarzacza na WebView i Node dotyczy MV/MZ. Opisane poniżej
+wyniki z 29.09.2026 są historyczne i nie potwierdzają regresji obecnej wersji.
+Przed dłuższą grą należy sprawdzić zapis i odczyt oraz zachować kopię zapisów.
+Zakres zmian: [docs/REFACTORING.md](docs/REFACTORING.md). Problemy można
+zgłaszać przez [Issues](../../issues/new), podając wersję aplikacji, urządzenie,
+kroki odtworzenia i log po usunięciu prywatnych danych.
+
+## Historyczny opis implementacji
+
+Poniższe informacje opisują wdrożenie i weryfikację z 29.09.2026.
 
 ## Punkt wyjścia
 

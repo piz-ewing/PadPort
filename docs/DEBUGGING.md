@@ -1,5 +1,10 @@
 # Debugging MV/MZ games
 
+The refactored player uses Android System WebView and a separate Node process.
+Only limited local testing has been performed; stability is not guaranteed.
+See [Refactoring status](REFACTORING.md) for changes and removals. Problems can
+be reported through [Issues](../../../issues/new).
+
 Open the in-game menu and enable **Game debugging**. The preference is off by
 default, persists between launches, and works in release builds. It takes effect
 on the current page without reloading the game. Turn it off after diagnosis.
@@ -8,10 +13,9 @@ on the current page without reloading the game. Turn it off after diagnosis.
 
 Connect an ADB-authorized Android device to the development computer.
 
-- **GeckoView:** open `about:debugging` in desktop Firefox, enable USB devices,
-  select the device, and inspect the running game tab.
-- **WebView:** open `chrome://inspect/#devices` in desktop Chrome and inspect
-  the game WebView.
+Open `chrome://inspect/#devices` in desktop Chrome and inspect the game WebView.
+The GeckoView player has been removed; Firefox remote debugging does not attach
+to the current MV/MZ player.
 
 Use the debugger to pause JavaScript and inspect the call stack, event handlers,
 exceptions, and network requests. Native menu controls remain available if the
@@ -34,10 +38,9 @@ bounded recent history in native memory. **Diagnostics / copy log** includes:
 - loading image states and pending XMLHttpRequests;
 - JavaScript errors, rejected promises, and failed XHRs with request call stacks.
 
-In the page console, `PadPortDebug.snapshot()` reads current state. For GeckoView,
-the token-protected session URL `__padport__/debug-state` returns the most recent
-report while debugging is enabled. These reports can contain resource URLs and
-error messages; review them before sharing.
+In the page console, `PadPortDebug.snapshot()` reads current state. The player
+retains reports for **Diagnostics / copy log**. These reports can contain resource
+URLs, session tokens and error messages; review them before sharing.
 
 Sampling uses page timers rather than the engine update loop. A fresh timestamp
 with unchanged frames distinguishes an idle/stopped engine from a blocked page
@@ -56,9 +59,23 @@ reconstruct errors or requests that finished before debugging was enabled.
    current input, loading bitmaps, and network requests.
 4. For failed resources, inspect the request origin and response. Verify how the
    engine or plugin handles the failure before attributing the hang to a 404.
-5. Fix the failing lifecycle or resource-loading path, add a regression test,
-   then reproduce the same sequence on the device.
+5. Fix the failing lifecycle or resource-loading path and reproduce the same
+   sequence on the device. Record whether that sequence passed; after confirming
+   the behavior, add a focused regression test.
 
 Disabling debugging stops sampling, clears the retained report, and restores
 the request methods where they are still owned by the diagnostic wrapper. No
 game updates, resource completion, or interpreter progress is forced.
+
+## Report a problem
+
+Include the app version or commit, device model, Android version and System
+WebView version. Describe the reproduction steps, whether the failure is
+intermittent, whether an earlier version worked, and whether it concerns
+loading, graphics, audio, saving or input. For touch input, include which
+fingers press and release each control and whether input prediction is enabled.
+
+Attach a reviewed diagnostic report as text. Remove private paths and tokens,
+and do not upload game assets, complete game packages or personal save files
+to a public Issue. State the actual scope of local verification; a successful
+build or synthetic scenario does not establish stability for an entire game.
