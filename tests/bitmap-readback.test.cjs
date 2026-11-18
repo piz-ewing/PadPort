@@ -74,6 +74,22 @@ test('bitmap edits, same-size resize and destruction discard cached pixels', () 
     assert.equal(t.reads(), 4);
 });
 
+test('bitmap lifecycle hooks preserve deferred canvas creation', () => {
+    const t = setup();
+    const canvas = new t.sandbox.HTMLCanvasElement(128, 128);
+    const context = Object.assign(new t.sandbox.CanvasRenderingContext2D(), {canvas});
+    let creations = 0;
+    const bitmap = Object.create(t.Bitmap.prototype);
+    Object.defineProperties(bitmap, {
+        _canvas: {get() { creations++; this.__canvas = canvas; return canvas; }},
+        _context: {get() { creations++; this.__context = context; return context; }},
+    });
+    assert.equal(bitmap._setDirty(), 'dirty');
+    bitmap.destroy();
+    assert.equal(creations, 0, 'invalidation must not allocate a deferred canvas or context');
+    assert.equal(bitmap.__canvas, undefined);
+});
+
 test('native Canvas writes and identical dimension resets invalidate alpha tiles', () => {
     const t = setup(), bitmap = new t.Bitmap(), context = bitmap._context;
     assert.equal(bitmap.getAlphaPixel(0, 0), 19);

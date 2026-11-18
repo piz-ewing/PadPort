@@ -1,7 +1,8 @@
-/* Bound Gecko's decoder usage when plugins preload many sounds at once. */
+/* Bound decoder usage when plugins preload many sounds at once. */
 (() => {
     'use strict';
-    if (window.__PADPORT_CONFIG__.renderer !== 'gecko') return;
+    const config = window.__PADPORT_CONFIG__;
+    if (config.renderer !== 'gecko' && !['MV', 'MZ'].includes(config.engine)) return;
     const proto = window.BaseAudioContext && window.BaseAudioContext.prototype;
     if (!proto || proto.decodeAudioData.padportQueued) return;
     const decode = proto.decodeAudioData;

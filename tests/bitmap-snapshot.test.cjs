@@ -13,8 +13,13 @@ function setup({renderer = 'gecko', deferred = false, failure = null} = {}) {
         set width(value) { this._width = value; this.version++; }
         get height() { return this._height; }
         set height(value) { this._height = value; this.version++; }
-        setAttribute(name, value) { if (name === 'width' || name === 'height') this[name] = Number(value); }
+        setAttribute(name, value) {
+            name = name.toLowerCase();
+            if (name === 'width' || name === 'height') this[name] = Number(value);
+        }
         removeAttribute(name) { if (name === 'width' || name === 'height') this[name] = 300; }
+        setAttributeNS(namespace, name, value) { this.setAttribute(name, value); }
+        removeAttributeNS(namespace, name) { this.removeAttribute(name); }
     }
     class CanvasRenderingContext2D {
         constructor(canvas = new HTMLCanvasElement()) { this.canvas = canvas; }
@@ -79,6 +84,27 @@ test('all native writes and bitmap lifecycle changes close snapshots before the 
         edit(b); assert.equal(t.requests[0].closed, 1);
         t.draw(b._canvas); assert.equal(t.draws.at(-1).source, b._canvas);
     }
+});
+
+test('canvas metadata changes preserve snapshots while namespaced dimension resets invalidate them', async () => {
+    const t = setup(), b = new t.Bitmap();
+    for (let i = 0; i < 3; i++) t.draw(b._canvas);
+    await t.flush();
+    for (const name of ['class', 'style', 'data-state']) {
+        b._canvas.setAttribute(name, 'active');
+        b._canvas.removeAttribute(name);
+        b._canvas.setAttributeNS(null, name, 'active');
+        b._canvas.removeAttributeNS(null, name);
+        t.draw(b._canvas);
+        assert.equal(t.draws.at(-1).source, t.requests[0].bitmap);
+        assert.equal(t.requests[0].closed, 0);
+    }
+    b._canvas.setAttribute('WIDTH', '512');
+    assert.equal(t.requests[0].closed, 1);
+    for (let i = 0; i < 3; i++) t.draw(b._canvas);
+    await t.flush();
+    b._canvas.setAttributeNS(null, 'height', '512');
+    assert.equal(t.requests[1].closed, 1);
 });
 
 test('animated canvases, small sources, self copies and non-Gecko rendering stay native', async () => {

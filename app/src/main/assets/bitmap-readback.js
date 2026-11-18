@@ -129,7 +129,12 @@
         for (const name of ['setAttribute', 'setAttributeNS', 'removeAttribute', 'removeAttributeNS']) {
             const change = canvasProto[name];
             if (typeof change !== 'function') continue;
+            const attributeIndex = name.endsWith('NS') ? 1 : 0;
             canvasProto[name] = function() {
+                const attribute = arguments[attributeIndex];
+                if (typeof attribute === 'string' && !/^(?:.*:)?(?:width|height)$/i.test(attribute)) {
+                    return change.apply(this, arguments);
+                }
                 invalidate(canvasCaches.get(this));
                 try { return change.apply(this, arguments); }
                 finally { canvasCaches.delete(this); }
@@ -155,7 +160,9 @@
             window.addEventListener('pageshow', () => { hidden = false; });
         }
         function invalidateBitmap(bitmap) {
-            const canvas = bitmap._canvas || bitmap._context && bitmap._context.canvas;
+            // MV 1.6 getters allocate a canvas and call _setDirty themselves.
+            const canvas = bitmap.__canvas || Object.getOwnPropertyDescriptor(bitmap, '_canvas')?.value
+                || Object.getOwnPropertyDescriptor(bitmap, '_context')?.value?.canvas;
             invalidate(canvas && canvasCaches.get(canvas));
         }
         const dirty = proto._setDirty;
