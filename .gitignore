@@ -20,3 +20,6 @@ __pycache__/
 app/src/main/jniLibs/
 
 tools/node-buffer/node_modules/
+runtime/node_modules/
+app/.cxx/
+app/src/main/assets/runtime/

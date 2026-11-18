@@ -3,12 +3,15 @@ plugins { id 'com.android.application' }
 android {
     namespace 'pl.padport.app'
     compileSdk 35
+    ndkVersion '27.0.12077973'
     defaultConfig {
         applicationId providers.gradleProperty('padportApplicationId').getOrElse('pl.padport.app')
         minSdk 26
         targetSdk 35
         versionCode 19
         versionName '0.6.11'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_shared' } }
         if (providers.gradleProperty('padportApplicationId').isPresent())
             resValue 'string', 'app_name', 'PadPort 中文版'
     }
@@ -22,6 +25,7 @@ android {
     // Prebuilt mkxp-z (RGSS) libraries: tools/fetch_rgss_engine.py -> src/main/jniLibs.
     // SDL loads libmkxp-z.so by its path in nativeLibraryDir, so libraries are extracted.
     packaging { jniLibs { useLegacyPackaging true } }
+    externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' } }
 }
 
 tasks.register('checkRgssEngine') {
@@ -32,9 +36,17 @@ tasks.register('checkRgssEngine') {
 }
 preBuild.dependsOn 'checkRgssEngine'
 
+tasks.register('checkNodeRuntime') {
+    doLast {
+        if (!rootProject.file('.tools/nodejs-mobile/bin/arm64-v8a/libnode.so').exists())
+            throw new GradleException('Node runtime missing: run python tools/fetch_node_runtime.py')
+        if (!file('src/main/assets/runtime/node.cjs').exists())
+            throw new GradleException('Runtime assets missing: run npm ci --prefix runtime and npm run build --prefix runtime')
+    }
+}
+preBuild.dependsOn 'checkNodeRuntime'
+
 dependencies {
-    // Experimental 64-bit renderer for MV/MZ where the system WebView is 32-bit (e.g. AYN Thor).
-    implementation 'org.mozilla.geckoview:geckoview-arm64-v8a:142.0.20250827004350'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }

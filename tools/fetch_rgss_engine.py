@@ -5,7 +5,8 @@ https://github.com/BookerRues9/mkxp-z-android-reworked (tag v1.0.0, built by
 GitHub Actions from commit 0828373e0ad65402eced54e6b45645fceacf6bea). The
 archive is verified by SHA-256 and only lib/arm64-v8a/*.so is extracted into
 app/src/main/jniLibs (not kept in version control). The matching SDL 2.26.3
-Java glue lives in app/src/main/java/org/libsdl/app.
+Java glue lives in app/src/main/java/org/libsdl/app. The shared C++ runtime
+comes from the project's NDK build and is shared with the Node host.
 
 Licences: mkxp-z GPL-2.0-or-later, Ruby (Ruby/BSD-2-Clause), SDL2 & SDL_* (zlib),
 OpenAL Soft (LGPL-2.1-or-later), OpenSSL 3 (Apache-2.0), libc++ (Apache-2.0 WITH
@@ -24,7 +25,7 @@ URL = "https://github.com/BookerRues9/mkxp-z-android-reworked/releases/download/
 SHA256 = "e8bc82724dcb822c7f00e11df0b932c4a8d3a7b9167e28e129fc34f3d246b600"
 ABI = "arm64-v8a"
 LIBS = ("libSDL2.so", "libSDL2_image.so", "libSDL2_sound.so", "libSDL2_ttf.so",
-        "libc++_shared.so", "libmkxp-z.so", "libopenal.so", "libruby.so")
+        "libmkxp-z.so", "libopenal.so", "libruby.so")
 ARCHIVE = TOOLS / "rgss" / "mkxpz-v1.0.0.apk"
 
 # Length-preserving fixes of GLSL sources embedded in libmkxp-z.so (from
@@ -64,7 +65,7 @@ def sha256(path: Path) -> str:
 
 def fetch() -> Path:
     stamp = TOOLS / "rgss" / "jnilibs.sha256"
-    expected = SHA256 + "+" + PATCH_VERSION
+    expected = SHA256 + "+" + PATCH_VERSION + "+ndk-stl"
     if stamp.is_file() and stamp.read_text().strip() == expected and all((TARGET / lib).is_file() for lib in LIBS):
         return TARGET
     if not ARCHIVE.is_file() or sha256(ARCHIVE) != SHA256:

@@ -1,0 +1,29 @@
+{
+  "name": "padport-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.20.4"
+  },
+  "scripts": {
+    "build": "node build.cjs",
+    "test": "node --test test/*.test.cjs",
+    "start": "node src/main.cjs"
+  },
+  "dependencies": {
+    "@electron/asar": "3.4.1",
+    "resolve": "^1.22.10"
+  },
+  "devDependencies": {
+    "buffer": "6.0.3",
+    "esbuild": "0.25.0",
+    "events": "3.3.0",
+    "lz-string": "^1.5.0",
+    "pako": "1.0.11",
+    "process": "^0.11.10",
+    "shaderity": "0.2.23",
+    "util": "0.12.5",
+    "ws": "^8.23.0"
+  }
+}

@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.22)
+project(padport_runtime LANGUAGES CXX)
+
+set(NODE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../.tools/nodejs-mobile")
+add_library(node SHARED IMPORTED)
+set_target_properties(node PROPERTIES IMPORTED_LOCATION "${NODE_ROOT}/bin/${ANDROID_ABI}/libnode.so")
+add_library(padport-runtime SHARED node-runtime.cpp)
+target_compile_features(padport-runtime PRIVATE cxx_std_17)
+target_include_directories(padport-runtime PRIVATE "${NODE_ROOT}/include/node")
+target_link_libraries(padport-runtime PRIVATE node log)
