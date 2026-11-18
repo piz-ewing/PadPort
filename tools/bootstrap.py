@@ -1,19 +1,18 @@
-"""Project-local Gradle/Android SDK bootstrap. Downloads verified official archives."""
+"""Locate the installed Android build tools and cached Gradle distribution."""
 from __future__ import annotations
-import hashlib
 import os
 import shutil
 import sys
 import time
 import urllib.request
-import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 TOOLS=ROOT/".tools"
-SDK=TOOLS/"android-sdk"
-GRADLE="8.9"
+SDK=Path(os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or
+         str(Path.home()/"AppData/Local/Android/Sdk"))
+GRADLE="8.14.5"
 
 def download(url,path):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -38,50 +37,31 @@ def unpack(archive,dest):
         z.extractall(dest)
 
 def prepare():
-    TOOLS.mkdir(exist_ok=True)
-    gradle=TOOLS/f"gradle-{GRADLE}"
-    if not (gradle/"bin/gradle.bat").exists():
-        archive=TOOLS/f"gradle-{GRADLE}-bin.zip"
-        sha=TOOLS/(archive.name+".sha256")
-        download(f"https://services.gradle.org/distributions/{archive.name}.sha256",sha)
-        expected=sha.read_text().strip().split()[0]
-        if not archive.exists() or hashlib.sha256(archive.read_bytes()).hexdigest()!=expected:
-            download(f"https://services.gradle.org/distributions/{archive.name}",archive)
-        if hashlib.sha256(archive.read_bytes()).hexdigest()!=expected: raise ValueError("Gradle checksum mismatch")
-        unpack(archive,TOOLS)
-    if not (SDK/"platforms/android-35/android.jar").exists():
-        manifest=TOOLS/"repository.xml"
-        download("https://dl.google.com/android/repository/repository2-3.xml",manifest)
-        root=ET.parse(manifest).getroot()
-        for node in root.iter(): node.tag=node.tag.split("}")[-1]
-        package=next(p for p in root.findall("remotePackage") if p.attrib.get("path")=="platforms;android-35")
-        complete=package.find("archives/archive/complete")
-        url=complete.findtext("url");check=complete.findtext("checksum").strip()
-        archive=TOOLS/Path(url).name
-        if not archive.exists() or hashlib.sha1(archive.read_bytes()).hexdigest()!=check:
-            download("https://dl.google.com/android/repository/"+url,archive)
-        if hashlib.sha1(archive.read_bytes()).hexdigest()!=check: raise ValueError("Android platform checksum mismatch")
-        dest=TOOLS/"platform-unpack";unpack(archive,dest)
-        source=next(p.parent for p in dest.rglob("android.jar"))
-        (SDK/"platforms").mkdir(parents=True,exist_ok=True)
-        shutil.move(str(source),str(SDK/"platforms/android-35"))
-        shutil.rmtree(dest)
-    existing=Path(os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or
-                  str(Path.home()/"AppData/Local/Android/Sdk"))
-    if not (SDK/"build-tools/35.0.0").exists():
-        source=existing/"build-tools/35.0.0"
-        if not source.exists(): raise RuntimeError("Install Android build-tools 35.0.0 using Android Studio, then set ANDROID_HOME.")
-        shutil.copytree(source,SDK/"build-tools/35.0.0")
-    if (existing/"licenses").is_dir(): shutil.copytree(existing/"licenses",SDK/"licenses",dirs_exist_ok=True)
-    (ROOT/"local.properties").write_text("sdk.dir="+SDK.as_posix()+"\n",encoding="utf-8")
     env=dict(os.environ)
+    properties=ROOT/"local.properties"
+    sdk=SDK
+    if properties.is_file():
+        for line in properties.read_text(encoding="utf-8").splitlines():
+            if line.startswith("sdk.dir="):
+                sdk=Path(line.split("=",1)[1].replace("\\:",":").replace("\\\\","\\"))
+    for required in ["platforms/android-35/android.jar", "build-tools/35.0.0", "ndk/27.0.12077973", "cmake/3.22.1"]:
+        if not (sdk/required).exists(): raise RuntimeError("Missing installed Android component: "+str(sdk/required))
+    executable="gradle.bat" if os.name=="nt" else "gradle"
+    cache=Path(env.get("GRADLE_USER_HOME",str(Path.home()/".gradle")))
+    candidates=[]
+    if env.get("GRADLE_HOME"): candidates.append(Path(env["GRADLE_HOME"]))
+    candidates.extend(sorted((cache/"wrapper/dists"/f"gradle-{GRADLE}-bin").glob(f"*/gradle-{GRADLE}")))
+    candidates.append(TOOLS/f"gradle-{GRADLE}")
+    gradle=next((candidate for candidate in candidates if (candidate/"bin"/executable).is_file()),None)
+    if gradle is None: raise RuntimeError("No installed Gradle distribution found for "+GRADLE)
     if os.name=="nt":
-        candidates=[Path(env.get("JAVA_HOME","__missing__")),Path(r"C:\Program Files\Java\jdk-17.0.1"),Path(r"C:\Program Files\Android\Android Studio\jbr")]
+        candidates=[Path(env.get("JAVA_HOME","__missing__")),Path(r"C:\Program Files\Android\Android Studio\jbr")]
         for candidate in candidates:
             if (candidate/"bin/javac.exe").exists(): env["JAVA_HOME"]=str(candidate);break
-    env["ANDROID_HOME"]=str(SDK)
-    env["GRADLE_USER_HOME"]=str(TOOLS/"gradle-cache")
-    print("Gradle ready:",gradle,"SDK:",SDK,"JDK:",env.get("JAVA_HOME","PATH"),flush=True)
+    if not properties.exists(): properties.write_text("sdk.dir="+sdk.as_posix()+"\n",encoding="utf-8")
+    env["ANDROID_HOME"]=str(sdk)
+    env["ANDROID_SDK_ROOT"]=str(sdk)
+    print("Gradle ready:",gradle,"SDK:",sdk,"JDK:",env.get("JAVA_HOME","PATH"),flush=True)
     return gradle,env
 
 if __name__=="__main__":
