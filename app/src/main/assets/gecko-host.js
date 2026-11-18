@@ -6,8 +6,9 @@
     if (window.PadPortHost) return;
     let snapshot = '{"revision":0,"paused":false,"pads":[]}';
     let inputSnapshot = {revision: 0, paused: false, pads: []};
-    const post = (name, body) => fetch('__padport__/' + name, {method: 'POST', body: body == null ? '' : String(body)}).catch(() => {});
-    const events = new EventSource('__padport__/events');
+    const endpoint = name => (window.PadPortRuntime ? window.PadPortRuntime.base : '') + '__padport__/' + name;
+    const post = (name, body) => fetch(endpoint(name), {method: 'POST', body: body == null ? '' : String(body)}).catch(() => {});
+    const events = new EventSource(endpoint('events'));
     events.onmessage = e => {
         const state = JSON.parse(e.data);
         snapshot = e.data;
@@ -17,7 +18,6 @@
         const pad = window.PadPort;
         if (!pad) return;
         const command = String(e.data);
-        if(command==='dual-disable'){if(window.LookOutsideDual)LookOutsideDual.disable();if(window.FearHungerDual)FearHungerDual.disable();if(window.ElderfieldDual)ElderfieldDual.disable();return;}
         if (command === 'pause') pad.pause();
         else if (command === 'resume') pad.resume();
         else if (command === 'debug:true' || command === 'debug:false') window.PadPortDebug.setEnabled(command === 'debug:true');
@@ -31,14 +31,12 @@
     window.PadPortHost = {
         markerFile: request => {
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '__padport__/marker-file', false);
+            xhr.open('POST', endpoint('marker-file'), false);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.send(request);
             if (xhr.status !== 200) throw new Error('Save file request failed: ' + xhr.status);
             return xhr.responseText;
         },
-        dualPoll: () => fetch('__padport__/dual-poll',{cache:'no-store'}).then(r=>r.text()),
-        dualSnapshot: payload => post('dual-snapshot',payload),
         snapshot: () => snapshot,
         inputSnapshot: () => inputSnapshot,
         log: message => post('log', message),

@@ -7,13 +7,14 @@ const vm = require('node:vm');
 const source = ['gecko-host.js', 'bridge.js'].map(name =>
     fs.readFileSync(path.join(__dirname, '../app/src/main/assets', name), 'utf8')).join('\n');
 
-function setup() {
+function setup(runtimeBase) {
     let stream, parses = 0, clears = 0;
     const listeners = new Map();
     const sandbox = {
         __PADPORT_CONFIG__: {}, PadPortI18n: {text: key => key}, PadPortBuffer: {Buffer},
+        PadPortRuntime: runtimeBase ? {base: runtimeBase} : undefined,
         EventSource: class {
-            constructor() { stream = this; }
+            constructor(url) { stream = this; this.url = url; }
             addEventListener() {}
         },
         JSON: {parse(value) { parses++; return JSON.parse(value); }, stringify: JSON.stringify},
@@ -26,7 +27,7 @@ function setup() {
     sandbox.window = sandbox;
     vm.createContext(sandbox);
     vm.runInContext(source, sandbox);
-    return {sandbox, parses: () => parses, clears: () => clears,
+    return {sandbox, stream, parses: () => parses, clears: () => clears,
         message: data => stream.onmessage({data}), fire: type => listeners.get(type)({type})};
 }
 
@@ -51,6 +52,15 @@ test('Gecko input polls reuse the state parsed on SSE delivery', () => {
     assert.equal(host.inputSnapshot(), state);
     assert.equal(host.snapshot(), raw, 'existing string snapshot consumers remain compatible');
     assert.equal(state.pads[0].buttons[0], 1, 'polling must not mutate the received state');
+});
+
+test('nested game pages keep controller requests on the session endpoint', async () => {
+    const base = 'http://127.0.0.1:23000/session/', t = setup(base), requests = [];
+    assert.equal(t.stream.url, base + '__padport__/events');
+    t.sandbox.fetch = async (url, options) => { requests.push({url, options}); return {}; };
+    await t.sandbox.PadPortHost.log('event');
+    assert.equal(requests[0].url, base + '__padport__/log');
+    assert.equal(setup().stream.url, '__padport__/events');
 });
 
 test('SSE updates still release held input and switch keyboard mode before key listeners', () => {

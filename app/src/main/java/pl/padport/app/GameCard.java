@@ -49,15 +49,6 @@ final class GameCard extends FrameLayout {
         more.setBackgroundTintList(ColorStateList.valueOf(0xc01d1c1d));actions.addView(more,new LinearLayout.LayoutParams(Ui.dp(activity,52),Ui.dp(activity,48)));
         content.addView(actions);
         addView(content,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));
-        if(DualScreenProfile.enabled(game)){
-            ImageView badge=new ImageView(activity);badge.setImageResource(R.drawable.ic_dual_screen);
-            badge.setContentDescription(activity.getString(R.string.dual_screen_badge));
-            badge.setTooltipText(activity.getString(R.string.dual_screen_badge));
-            badge.setPadding(Ui.dp(activity,7),Ui.dp(activity,7),Ui.dp(activity,7),Ui.dp(activity,7));
-            badge.setBackground(Ui.background(0xdd1d1c1d,Ui.dp(activity,8)));
-            FrameLayout.LayoutParams badgeSize=new FrameLayout.LayoutParams(Ui.dp(activity,40),Ui.dp(activity,40),Gravity.TOP|Gravity.END);
-            badgeSize.setMargins(0,Ui.dp(activity,10),Ui.dp(activity,10),0);addView(badge,badgeSize);
-        }
     }
     boolean visible(){return isAttachedToWindow()&&getGlobalVisibleRect(new Rect());}
     void artwork(Bitmap bitmap){picture.setImageBitmap(bitmap);placeholder.setVisibility(bitmap==null?VISIBLE:INVISIBLE);finished=true;}

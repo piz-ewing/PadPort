@@ -44,9 +44,6 @@ public class RgssActivity extends SDLActivity {
     private final Set<Integer> held = new TreeSet<>();
     private ControllerHub controllers;
     private RgssRuntime runtime;
-    private DualScreenSession dualScreen;
-    private RgssCompanionBridge companionBridge;
-    private static boolean webDataPrepared;
     private String gameId, title = "PadPort";
     private TextView status;
     private Button menuButton;
@@ -56,10 +53,6 @@ public class RgssActivity extends SDLActivity {
     private final Runnable hideMenuButton = () -> { if (menuButton != null && menu == null && !touching) menuButton.setVisibility(View.INVISIBLE); };
 
     @Override protected void onCreate(Bundle state) {
-        if(Build.VERSION.SDK_INT>=28&&!webDataPrepared){
-            // The library/Look Outside WebView may still be alive in the main process.
-            android.webkit.WebView.setDataDirectorySuffix("rgss-companion");webDataPrepared=true;
-        }
         try {
             // Controllers go through PadPort's ControllerHub (profiles, learned keys).
             // SDL must not open them again through HIDAPI/USB, or input would be doubled.
@@ -115,8 +108,6 @@ public class RgssActivity extends SDLActivity {
                 runOnUiThread(() -> { if (status != null) status.setText(text); });
             });
             File config = runtime.configure(this, source);
-            boolean companion=DualScreenProfile.TO_THE_MOON.equals(DualScreenProfile.identify(source.title,source.engine));
-            if(companion)Os.setenv("PADPORT_TTM_COMPANION",new File(runtime.base,"companion").getAbsolutePath(),true);
             Os.setenv("PADPORT_SAVE_DIR", runtime.saves.getAbsolutePath(), true);
             GAME_PATH = config.getAbsolutePath();
             runOnUiThread(() -> {
@@ -124,11 +115,6 @@ public class RgssActivity extends SDLActivity {
                 mLayout.removeView(status);
                 status = null;
                 prepared = true;
-                if(companion){
-                    dualScreen=new DualScreenSession(this,gameId);
-                    try{companionBridge=new RgssCompanionBridge(new File(runtime.base,"companion"),dualScreen.channel,dualScreen::snapshot);}
-                    catch(IOException e){Log.w(TAG,"Cannot start To the Moon companion",e);dualScreen.close();dualScreen=null;}
-                }
                 startIfReady();
                 showMenuButton();
             });
@@ -150,7 +136,6 @@ public class RgssActivity extends SDLActivity {
             controllers.clear(false);
             hideSystemBars();
             refreshVirtualController();
-            if(dualScreen!=null)dualScreen.resume();
         }
     }
 
@@ -193,7 +178,6 @@ public class RgssActivity extends SDLActivity {
     }
 
     @Override protected void onStop() {
-        if(dualScreen!=null)dualScreen.pause();
         started = false;
         nativeRunning = false;
         if (virtualControls != null) virtualControls.suspend();
@@ -209,8 +193,6 @@ public class RgssActivity extends SDLActivity {
     }
 
     @Override protected void onDestroy() {
-        if(companionBridge!=null)companionBridge.close();
-        if(dualScreen!=null)dualScreen.close();
         handler.removeCallbacksAndMessages(null);
         if (virtualControls != null) virtualControls.suspend();
         if (controllers != null) controllers.close();
@@ -290,7 +272,6 @@ public class RgssActivity extends SDLActivity {
 
     private void openMenu() {
         if (menu != null || isFinishing() || !prepared) return;
-        if(dualScreen!=null)dualScreen.pause();
         releaseKeys();
         controllers.clear(true);
         if (virtualControls != null) virtualControls.suspend();
@@ -302,7 +283,6 @@ public class RgssActivity extends SDLActivity {
         LinearLayout settings=Ui.column(this);
         settings.addView(VirtualControllerSettings.checkbox(this,enabled->refreshVirtualController()));
         settings.addView(VirtualControllerSettings.layoutControl(this,this::refreshVirtualController));
-        settings.addView(DualScreenOptions.controls(this,Library.get(this,gameId),()->{}));
         menu = Ui.menuDialog(this,title,items,settings, (d, n) -> {
             if (n == 1) {
                 Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE);

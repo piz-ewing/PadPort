@@ -15,10 +15,6 @@ final class Library {
             JSONArray array=new JSONArray(c.getSharedPreferences("library",0).getString("games","[]"));
             for(int i=0;i<array.length();i++){
                 JSONObject game=array.getJSONObject(i);
-                try{
-                    Boolean enabled=DualScreenPreference.read(DualScreenPreference.file(c,game.optString("id")));
-                    if(enabled!=null)game.put("dualScreen",enabled);
-                }catch(IllegalArgumentException ignored){}
                 list.add(game);
             }
         } catch(Exception ignored) { }
@@ -49,7 +45,6 @@ final class Library {
                 JSONObject previous=list.get(i);
                 if(!previous.optString("id").equals(record.optString("id")))continue;
                 if(previous.has(LAST_PLAYED))replacement.put(LAST_PLAYED,lastPlayed(previous));
-                if(previous.has("dualScreen"))replacement.put("dualScreen",previous.optBoolean("dualScreen",false));
                 list.set(i,replacement);sortByLastPlayed(list);return;
             }
             list.add(replacement);sortByLastPlayed(list);
@@ -65,13 +60,6 @@ final class Library {
     }
     static void remove(Context c,String id) {
         List<JSONObject> list=all(c);list.removeIf(x->x.optString("id").equals(id));save(c,list);
-        try{java.nio.file.Files.deleteIfExists(DualScreenPreference.file(c,id).toPath());}catch(Exception ignored){}
-        GameEngine.forget(c,id);
-    }
-    static boolean setDualScreen(Context c,String id,boolean enabled){
-        if(!DualScreenProfile.supports(get(c,id)))return false;
-        try{DualScreenPreference.write(DualScreenPreference.file(c,id),enabled);return true;}
-        catch(java.io.IOException e){android.util.Log.w("PadPort","Cannot save dual-screen option",e);return false;}
     }
     private static void save(Context c,List<JSONObject> list) {
         JSONArray array=new JSONArray();for(JSONObject obj:list) array.put(obj);

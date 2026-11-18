@@ -3,17 +3,6 @@
     <string name="virtual_controller_layout">Button layout</string>
     <string name="virtual_layout_default">Default style</string>
     <string name="virtual_layout_mtool">mtool style</string>
-    <string name="dual_screen_option">%1$s — dual-screen interface</string>
-    <string name="ttm_dual_hint">Collected notes, items and current character biographies on the other display. The notebook uses the current game state.</string>
-    <string name="dual_screen_hint">Party status and inventory on the other display. This setting is saved for this game.</string>
-    <string name="ef_dual_hint">Your character on the other display: portrait, HP/MP, energy, effects and gear, with the time, weather and gold. The sky follows the time of day and the season. The item menu can be used from the lower screen through the game\'s own actions.</string>
-    <string name="fh_dual_hint">Party status on the other display: portraits, body and mind, lost limbs, conditions such as hunger, fear or bleeding, and equipment. Menus and battle stay on the main screen.</string>
-    <string name="dual_screen_no_display">No second display is available. The setting is remembered; the normal interface remains usable.</string>
-    <string name="dual_screen_badge">Dual-screen interface enabled</string>
-    <string name="dual_screen_question_title">Use both screens?</string>
-    <string name="dual_screen_question">A second display is available. Enable the dual-screen interface for %1$s? %2$s You can change this later in the game menu.</string>
-    <string name="dual_screen_enable">Enable</string>
-    <string name="dual_screen_not_now">Not now</string>
     <string name="app_name" translatable="false">PadPort</string>
     <!-- Resolved alongside native text, so WebView uses Android's chosen language. -->
     <string name="ui_language">en</string>
@@ -57,7 +46,7 @@
     <string name="opening_game">Opening original game files…</string>
     <string name="game_not_in_library">This game is not in the library.</string>
     <string name="launch_error">Unable to start game</string>
-    <string name="launch_error_details">%1$s\n\nRefresh the file index in the library or select the game folder again.</string>
+    <string name="launch_error_details">%1$s</string>
     <string name="app_menu">App menu</string>
     <string name="back_to_test">Back to test</string>
     <string name="back_to_game">Back to game</string>
@@ -115,11 +104,6 @@
     <string name="folder_read_error">Unable to read the game folder.</string>
     <string name="index_missing">No game was found. Select the folder with index.html, www, app.asar or resources/app.asar (MV/MZ), or with Game.ini (XP/VX/VX Ace).</string>
     <string name="unsupported_engine">This folder does not contain an RPG Maker MV/MZ/XP/VX/VX Ace game.</string>
-    <string name="engine_gecko_option">Use GeckoView (64-bit engine)</string>
-    <string name="engine_gecko_hint">Recommended: more memory for big games. Turn off to use the Android System WebView instead. This setting is saved for this game.</string>
-    <string name="engine_switch_title">Change the game engine?</string>
-    <string name="engine_switch_message">Saves are not shared between GeckoView and the Android System WebView. After the change, %1$s will not see the saves made with the other engine. They are not deleted: switch back to see them again.</string>
-    <string name="engine_switch_confirm">Change engine</string>
     <string name="renderer_gone_title">The game stopped</string>
     <string name="renderer_crashed">The Android System WebView process running the game crashed. Saved games are kept; progress since the last save is lost.</string>
     <string name="renderer_crashed_gecko">The GeckoView engine running the game crashed. Saved games are kept; progress since the last save is lost.</string>
@@ -156,5 +140,5 @@
     <string name="export_directory_details">Copy the saves already stored by this game in PadPort to its save folder (usually www/save). Matching files will be replaced. This does not save your current unsaved progress.</string>
     <string name="directory_saves_exported">Exported %1$d save files to the game folder.</string>
     <string name="player_debug">Game debugging</string>
-    <string name="player_debug_details">Enable live page debugging over ADB and collect runtime state. GeckoView: Firefox about:debugging; WebView: Chrome chrome://inspect. Takes effect immediately, including in release builds. Turn off when finished.</string>
+    <string name="player_debug_details">Enable live page debugging over ADB and collect runtime state. Connect with Chrome chrome://inspect. Takes effect immediately, including in release builds. Turn off when finished.</string>
 </resources>

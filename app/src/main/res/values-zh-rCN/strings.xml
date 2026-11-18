@@ -4,17 +4,6 @@
     <string name="virtual_layout_default">默认风格</string>
     <string name="virtual_layout_mtool">mtool 风格</string>
     <string name="ui_language">zh</string>
-    <string name="dual_screen_option">%1$s · 双屏界面</string>
-    <string name="ttm_dual_hint">在另一块屏幕查看当前进度的人物介绍、笔记和物品。</string>
-    <string name="dual_screen_hint">在另一块屏幕显示队伍状态和物品，此设置按游戏保存。</string>
-    <string name="ef_dual_hint">在另一块屏幕显示头像、生命、魔力、精力、状态、装备、时间、天气和金钱。下屏物品菜单可调用游戏原有操作。</string>
-    <string name="fh_dual_hint">在另一块屏幕显示队伍、身体与精神状态、肢体、饥饿、恐惧、流血等状态和装备。菜单与战斗仍在主屏幕。</string>
-    <string name="dual_screen_no_display">未检测到第二块屏幕。设置已保留，仍可使用普通界面。</string>
-    <string name="dual_screen_badge">双屏界面已启用</string>
-    <string name="dual_screen_question_title">使用双屏界面？</string>
-    <string name="dual_screen_question">检测到第二块屏幕。为 %1$s 启用双屏界面？%2$s 可稍后在游戏菜单中更改。</string>
-    <string name="dual_screen_enable">启用</string>
-    <string name="dual_screen_not_now">暂不启用</string>
     <string name="tagline">在安卓设备上运行 RPG Maker 游戏</string>
     <string name="library_hint">选择原游戏目录：MV/MZ 选择含 index.html、www 或 app.asar 的目录；XP/VX/VX Ace 选择含 Game.ini 的目录。游戏文件保留在原处。</string>
     <string name="indexing">正在建立文件索引…</string>
@@ -55,7 +44,7 @@
     <string name="opening_game">正在打开原游戏文件…</string>
     <string name="game_not_in_library">此游戏不在游戏库中。</string>
     <string name="launch_error">无法启动游戏</string>
-    <string name="launch_error_details">%1$s\n\n请在游戏库刷新文件索引，或重新选择游戏目录。</string>
+    <string name="launch_error_details">%1$s</string>
     <string name="app_menu">应用菜单</string>
     <string name="back_to_test">返回测试</string>
     <string name="back_to_game">返回游戏</string>
@@ -113,11 +102,6 @@
     <string name="folder_read_error">无法读取游戏目录。</string>
     <string name="index_missing">未找到游戏。MV/MZ 请选择含 index.html、www、app.asar 或 resources/app.asar 的目录，XP/VX/VX Ace 请选择含 Game.ini 的目录。</string>
     <string name="unsupported_engine">此目录不包含支持的 RPG Maker MV/MZ/XP/VX/VX Ace 游戏。</string>
-    <string name="engine_gecko_option">使用 GeckoView（64 位引擎）</string>
-    <string name="engine_gecko_hint">推荐大体积游戏使用。关闭后改用安卓系统 WebView，此设置按游戏保存。</string>
-    <string name="engine_switch_title">切换游戏引擎？</string>
-    <string name="engine_switch_message">切换后，%1$s 的应用内存档会随引擎变化。原存档不会删除，切回原引擎即可继续使用。</string>
-    <string name="engine_switch_confirm">切换引擎</string>
     <string name="renderer_gone_title">游戏已停止</string>
     <string name="renderer_crashed">安卓系统 WebView 的游戏进程崩溃。已保存的进度仍保留，未保存的进度会丢失。</string>
     <string name="renderer_crashed_gecko">GeckoView 的游戏进程崩溃。已保存的进度仍保留，未保存的进度会丢失。</string>
@@ -167,5 +151,5 @@
     <string name="export_directory_details">将本游戏已经保存在 PadPort 内的存档复制到游戏的 save 目录（通常为 www/save），覆盖目录中的同名文件。此操作不会保存当前尚未存档的进度。</string>
     <string name="directory_saves_exported">已向游戏目录导出 %1$d 个存档文件。</string>
     <string name="player_debug">游戏调试</string>
-    <string name="player_debug_details">通过 ADB 连接页面调试器并采集运行状态。GeckoView 使用 Firefox 的 about:debugging，WebView 使用 Chrome 的 chrome://inspect。Release 版也支持，开启后立即生效。调试完成后请关闭。</string>
+    <string name="player_debug_details">通过 ADB 连接页面调试器并采集运行状态，使用 Chrome 的 chrome://inspect 连接。Release 版也支持，开启后立即生效。调试完成后请关闭。</string>
 </resources>

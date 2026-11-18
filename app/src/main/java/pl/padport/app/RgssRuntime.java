@@ -123,11 +123,6 @@ final class RgssRuntime {
             gameConf = RgssGame.withDefaultPreloads(RgssGame.mkxpConf(read(conf)), preloads);
         }
         JSONObject config = RgssGame.config(info, game.getAbsolutePath(), preload.getAbsolutePath(), gameJson, gameConf);
-        if(DualScreenProfile.TO_THE_MOON.equals(DualScreenProfile.identify(source.title,source.engine))){
-            File companion=new File(base,"padport_ttm_dual.rb");
-            try(InputStream in=context.getAssets().open("rgss/padport_ttm_dual.rb")){writeAtomic(companion,RgssGame.readAll(in,1<<20));}
-            config.getJSONArray("preloadScript").put(companion.getAbsolutePath());
-        }
         writeAtomic(new File(base, "mkxp.json"), config.toString(2).getBytes(StandardCharsets.UTF_8));
         return base;
     }
@@ -215,10 +210,6 @@ final class RgssRuntime {
         Files.deleteIfExists(manifestFile().toPath());
         Files.deleteIfExists(new File(base, "mkxp.json").toPath());
         Files.deleteIfExists(new File(base, "padport_rgss.rb").toPath());
-        Files.deleteIfExists(new File(base,"padport_ttm_dual.rb").toPath());
-        File companion=new File(base,"companion");
-        for(String name:List.of("control.json","control.json.tmp","state.json","state.json.ruby-tmp"))Files.deleteIfExists(new File(companion,name).toPath());
-        prune(companion);
         prune(base);
     }
 

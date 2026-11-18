@@ -7,44 +7,29 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.*;
 import android.webkit.*;
 import android.widget.*;
 import org.json.JSONObject;
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayDeque;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ExecutorService;
+import java.io.IOException;
 
 public class PlayerActivity extends LocalizedActivity {
-    private static final int EXPORT=201,IMPORT=202;
-    private static final long MENU_IDLE_MS=5000;
-    private static final float MENU_ALPHA=.4f;
     private ControllerHub controllers;
     private WebView web;
     private KeyboardDispatcher keyboard;
     private boolean webReady;
-    private GameSource source;
-    private GameMarkers gameMarkers;
-    private GameSaveTransfer saveTransfer;
-    private volatile DualScreenSession dualScreen;
+    private JSONObject game;
+    private NodeRuntime server;
+    private boolean backendFailed;
     private FrameLayout root;
-    private AlertDialog menu;
+    private FrameLayout menu;
+    private AlertDialog diagnostics;
     private Button menuButton;
     private VirtualControllerView virtualControls;
-    private boolean touchingScreen;
-    private final Handler menuHandler=new Handler(Looper.getMainLooper());
-    private final Runnable hideMenuButton=()->{
-        if(menuButton!=null && menu==null && !touchingScreen) menuButton.setVisibility(View.INVISIBLE);
-    };
+    private Boolean playbackPaused;
+    private int playbackRevision;
     private boolean foreground;
-    private volatile boolean exporting;
-    private String exportPayload;
-    private final ArrayDeque<String> logs=new ArrayDeque<>();
-    private final ExecutorService worker=Executors.newSingleThreadExecutor();
+    private final RuntimeLog logs=new RuntimeLog();
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -53,38 +38,81 @@ public class PlayerActivity extends LocalizedActivity {
         controllers=new ControllerHub(this);controllers.onChange=this::updateKeyboard;controllers.start();
         TextView loading=Ui.text(this,R.string.opening_game,20,Ui.TEXT);loading.setGravity(Gravity.CENTER);
         root.addView(loading,new FrameLayout.LayoutParams(-1,-1));
-        String game=getIntent().getStringExtra("game");
-        if(game==null) setup(null);
-        else worker.execute(()->{
-            try {
-                JSONObject metadata=Library.get(this,game);
-                if(metadata==null)throw new IOException(getString(R.string.game_not_in_library));
-                GameSource src=GameSource.restore(this,metadata);
-                runOnUiThread(()->{if(!isDestroyed())setup(src);});
-            } catch(Exception e){runOnUiThread(()->{if(!isDestroyed())new AlertDialog.Builder(this).setTitle(R.string.launch_error)
-                .setMessage(getString(R.string.launch_error_details,e.toString())).setPositiveButton(R.string.back,(d,n)->finish()).setOnCancelListener(d->finish()).show();});}
-        });
+        String id=getIntent().getStringExtra("game");
+        if(id==null) setup(null);
+        else try {
+            game=Library.get(this,id);
+            if(game==null) throw new IOException(getString(R.string.game_not_in_library));
+            server=new NodeRuntime(this,game,this::runtimeEvent);
+            controllers.onChange=()->{server.publish(controllers.snapshot());updateKeyboard();};
+            server.publish(controllers.snapshot());
+        } catch(Exception error) {runtimeFailure(error.toString());}
     }
-    @SuppressWarnings("SetJavaScriptEnabled") private void setup(GameSource game) {
+    private void runtimeEvent(JSONObject event) {
+        if(isDestroyed()||isFinishing())return;
+        switch(event.optString("event")) {
+            case "ready" -> setup(game);
+            case "log" -> log(event.optString("value"));
+            case "debug-state" -> debugState=event.optString("value");
+            case "failed", "closed" -> runtimeFailure(event.optString("value"));
+        }
+    }
+    private void runtimeFailure(String message) {
+        log(message,true);
+        if(backendFailed||isDestroyed()||isFinishing())return;
+        backendFailed=true;webReady=false;
+        if(keyboard!=null)keyboard.clear();
+        if(web!=null){root.removeView(web);web.removeJavascriptInterface("PadPortFiles");web.resumeTimers();web.stopLoading();web.destroy();web=null;}
+        if(server!=null)server.close();
+        new AlertDialog.Builder(this).setTitle(R.string.launch_error)
+            .setMessage(getString(R.string.launch_error_details,message))
+            .setPositiveButton(R.string.back,(d,n)->finish()).setOnCancelListener(d->finish()).show();
+    }
+    @SuppressWarnings("SetJavaScriptEnabled") private void setup(JSONObject selected) {
         if(keyboard!=null)keyboard.clear();webReady=false;
-        if(dualScreen!=null){dualScreen.close();dualScreen=null;}
-        if(game!=null&&!DualScreenProfile.identify(game.title,game.engine).isEmpty())dualScreen=new DualScreenSession(this,game);
-        source=game;gameMarkers=game==null?null:new GameMarkers(game);saveTransfer=game==null?null:new GameSaveTransfer(game);root.removeAllViews();web=new WebView(this);
+        game=selected;menu=null;playbackPaused=null;playbackRevision++;root.removeAllViews();web=new WebView(this);
         keyboard=new KeyboardDispatcher(event->{if(web!=null)web.dispatchKeyEvent(event);});
         web.setBackgroundColor(Color.BLACK);web.setFocusableInTouchMode(true);
         WebSettings settings=web.getSettings();
         settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);
-        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);settings.setSupportMultipleWindows(false);
+        settings.setCacheMode(game==null?WebSettings.LOAD_NO_CACHE:WebSettings.LOAD_DEFAULT);settings.setSupportMultipleWindows(false);
+        if(game!=null)settings.setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.193 Mobile Safari/537.36");
         settings.setBuiltInZoomControls(false);settings.setSupportZoom(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        settings.setUseWideViewPort(true);settings.setLoadWithOverviewMode(true);
+        web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT,false);
         WebView.setWebContentsDebuggingEnabled(PlayerDebugSettings.remoteEnabled(this));
-        web.addJavascriptInterface(new Host(),"PadPortHost");
-        GameWebClient client=new GameWebClient(this,source,gameMarkers,this::log);
-        client.loaded=()->{webReady=true;if(foreground && menu==null)resumeGame();};
-        client.gone=this::renderGone;
-        web.setWebViewClient(client);
+        String url;
+        if(game==null) {
+            web.addJavascriptInterface(new Host(),"PadPortHost");
+            ControllerTestClient client=new ControllerTestClient(this,this::log);
+            client.loaded=this::pageLoaded;
+            client.gone=this::renderGone;
+            web.setWebViewClient(client);
+            url=ControllerTestClient.ORIGIN+"/index.html";
+        } else {
+            web.addJavascriptInterface(new FilesHost(),"PadPortFiles");
+            web.setWebViewClient(new WebViewClient(){
+                @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request) {
+                    String target=request.getUrl().toString();
+                    if(target.startsWith(server.base)||target.startsWith("about:"))return false;
+                    log("Blocked navigation: "+target);return true;
+                }
+                @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){
+                    webReady=false;playbackPaused=null;playbackRevision++;updateKeyboard();
+                }
+                @Override public void onPageFinished(WebView view,String url){pageLoaded();}
+                @Override public boolean onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){
+                    renderGone(detail.didCrash());return true;
+                }
+            });
+            url=server.url;
+        }
         web.setWebChromeClient(new WebChromeClient(){
-            @Override public boolean onConsoleMessage(ConsoleMessage message){log(message.messageLevel()+" "+message.message()+" @ "+message.sourceId()+":"+message.lineNumber());return true;}
+            @Override public boolean onConsoleMessage(ConsoleMessage message){
+                log(message.messageLevel()+" "+message.message()+" @ "+message.sourceId()+":"+message.lineNumber(),
+                    message.messageLevel()==ConsoleMessage.MessageLevel.ERROR);return true;
+            }
             @Override public boolean onJsAlert(WebView view,String url,String message,JsResult result){
                 new AlertDialog.Builder(PlayerActivity.this).setMessage(message).setPositiveButton(R.string.ok,(d,n)->result.confirm()).setOnCancelListener(d->result.cancel()).show();return true;
             }
@@ -92,9 +120,11 @@ public class PlayerActivity extends LocalizedActivity {
         root.addView(web,new FrameLayout.LayoutParams(-1,-1));
         virtualControls=new VirtualControllerView(this,controllers);
         root.addView(virtualControls,new FrameLayout.LayoutParams(-1,-1));
-        menuButton=Ui.button(this,"⋮",this::openMenu);menuButton.setTextSize(24);menuButton.setAlpha(MENU_ALPHA);
+        menuButton=Ui.button(this,"☰",this::openMenu);menuButton.setTextSize(24);menuButton.setAlpha(.7f);
+        menuButton.setPadding(0,0,0,0);menuButton.setMinWidth(0);menuButton.setMinimumWidth(0);
+        menuButton.setBackground(Ui.background(Ui.BG,Ui.dp(this,24)));
         menuButton.setContentDescription(getString(R.string.app_menu));menuButton.setFocusable(false);
-        FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(Ui.dp(this,52),Ui.dp(this,48),Gravity.TOP|Gravity.END);
+        FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(Ui.dp(this,48),Ui.dp(this,48),Gravity.TOP|Gravity.END);
         bp.setMargins(0,Ui.dp(this,8),Ui.dp(this,10),0);root.addView(menuButton,bp);
         root.setOnApplyWindowInsetsListener((v,insets)->{
             int right=0,left=0;
@@ -104,170 +134,152 @@ public class PlayerActivity extends LocalizedActivity {
             }
             v.setPadding(left,0,right,0);return insets;
         });
-        immersive();web.requestFocus();web.loadUrl(client.origin+"/index.html");
+        immersive();web.requestFocus();web.loadUrl(url);
         refreshVirtualController();
-        showMenuButton();
     }
+    private void pageLoaded(){webReady=true;playbackPaused=null;playbackRevision++;syncPlayback();}
     private void immersive(){
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
             |View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
     }
     @Override public boolean dispatchKeyEvent(KeyEvent event){return controllers!=null && controllers.key(event) || super.dispatchKeyEvent(event);}
     @Override public boolean dispatchGenericMotionEvent(MotionEvent event){return controllers!=null && controllers.motion(event) || super.dispatchGenericMotionEvent(event);}
-    @Override public boolean dispatchTouchEvent(MotionEvent event){
-        // Deliver DOWN before revealing the button. A tap on its hidden area
-        // still belongs to the game, rather than accidentally opening the menu.
-        boolean handled=super.dispatchTouchEvent(event);
-        int action=event.getActionMasked();
-        if(action==MotionEvent.ACTION_DOWN){touchingScreen=true;showMenuButton();}
-        else if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL){touchingScreen=false;showMenuButton();}
-        return handled;
-    }
-    private void showMenuButton(){
-        menuHandler.removeCallbacks(hideMenuButton);
-        if(menuButton==null || !foreground || menu!=null || isFinishing())return;
-        menuButton.setVisibility(View.VISIBLE);
-        if(!touchingScreen)menuHandler.postDelayed(hideMenuButton,MENU_IDLE_MS);
-    }
-    @Override protected void onResume(){super.onResume();foreground=true;if(controllers!=null)controllers.refresh();if(web!=null && menu==null)resumeGame();}
+    @Override protected void onResume(){super.onResume();foreground=true;if(controllers!=null)controllers.refresh();syncPlayback();}
     @Override protected void onPause(){foreground=false;pauseGame();super.onPause();}
-    @Override public void onWindowFocusChanged(boolean focus){super.onWindowFocusChanged(focus);if(!focus){if(virtualControls!=null)virtualControls.suspend();if(controllers!=null)controllers.clear(true);js("PadPort.clearInput()");}else if(foreground && menu==null)resumeGame();}
-    @Override public void onBackPressed(){if(menu!=null)menu.dismiss();else openMenu();}
+    @Override public void onWindowFocusChanged(boolean focus){
+        super.onWindowFocusChanged(focus);
+        if(!focus){
+            if(virtualControls!=null)virtualControls.suspend();
+            if(controllers!=null)controllers.clear(!canPlay());
+            if(keyboard!=null)keyboard.clear();
+            js("PadPort.clearInput()");
+        }else{syncPlayback();refreshVirtualController();updateKeyboard();}
+    }
+    @Override public void onBackPressed(){if(menu!=null)closeMenu();else openMenu();}
+    private boolean canPlay(){return foreground&&menu==null&&diagnostics==null&&!isFinishing();}
+    private void syncPlayback(){if(web==null)return;if(canPlay())resumeGame();else pauseGame();}
     private void js(String code){if(web!=null)web.evaluateJavascript("if(window.PadPort){"+code+";}",null);}
     private void updateKeyboard(){
+        if(game==null&&web!=null&&webReady)
+            web.evaluateJavascript("if(window.PadPortTester)PadPortTester.update("+controllers.snapshot()+")",null);
         if(keyboard==null)return;
-        if(web!=null&&webReady&&foreground&&menu==null&&hasWindowFocus())keyboard.update(controllers.keyboardKeys());
+        if(web!=null&&webReady&&canPlay()&&hasWindowFocus())keyboard.update(controllers.keyboardKeys());
         else keyboard.clear();
     }
-    private void pauseGame(){if(dualScreen!=null)dualScreen.pause();js("if(window.LookOutsideDual)LookOutsideDual.disable();if(window.FearHungerDual)FearHungerDual.disable();if(window.ElderfieldDual)ElderfieldDual.disable()");menuHandler.removeCallbacks(hideMenuButton);touchingScreen=false;if(virtualControls!=null)virtualControls.suspend();if(controllers!=null)controllers.clear(true);js("PadPort.pause()");if(web!=null)web.onPause();}
-    private void resumeGame(){if(controllers!=null)controllers.clear(false);if(web!=null){web.onResume();js("PadPort.resume()");web.requestFocus();immersive();refreshVirtualController();showMenuButton();if(dualScreen!=null)dualScreen.resume();}}
     private void refreshVirtualController(){
-        if(virtualControls!=null)virtualControls.configure(VirtualControllerSettings.enabled(this),foreground&&menu==null&&hasWindowFocus());
+        if(virtualControls!=null)
+            virtualControls.configure(VirtualControllerSettings.enabled(this),canPlay()&&hasWindowFocus());
+    }
+    private void pauseGame(){
+        if(Boolean.TRUE.equals(playbackPaused))return;
+        playbackPaused=true;
+        int revision=++playbackRevision;
+        if(virtualControls!=null)virtualControls.suspend();
+        if(keyboard!=null)keyboard.clear();
+        if(controllers!=null)controllers.clear(true);
+        if(web!=null){
+            String bridge=game==null?"PadPortHost":"PadPortFiles";
+            web.evaluateJavascript("Promise.resolve(window.PadPort?PadPort.pause():null).catch(error=>console.error(error))"
+                +".then(()=>window."+bridge+".playbackPaused("+revision+"));",null);
+        }
+    }
+    private void finishPause(int revision){
+        if(web!=null&&revision==playbackRevision&&Boolean.TRUE.equals(playbackPaused)&&!canPlay()){
+            web.onPause();web.pauseTimers();
+        }
+    }
+    private void resumeGame(){
+        if(!Boolean.FALSE.equals(playbackPaused)){
+            playbackPaused=false;
+            playbackRevision++;
+            if(web!=null){web.onResume();web.resumeTimers();}
+            if(controllers!=null)controllers.clear(false);
+            js("PadPort.resume()");
+        }
+        if(web!=null)web.requestFocus();
+        immersive();refreshVirtualController();updateKeyboard();
     }
     private void openMenu(){
-        if(web==null || menu!=null)return;
-        pauseGame();
-        String[] options=source==null?new String[]{getString(R.string.back_to_test),getString(R.string.controller_mapping),getString(R.string.diagnostics_copy_log),getString(R.string.close_tester)}
-            :new String[]{getString(R.string.back_to_game),getString(R.string.controller_mapping),getString(R.string.export_saves),getString(R.string.import_saves),getString(R.string.import_directory_saves),getString(R.string.export_directory_saves),getString(R.string.diagnostics_copy_log),getString(R.string.back_to_library)};
-        LinearLayout settings=Ui.column(this);
-        settings.addView(VirtualControllerSettings.checkbox(this,enabled->refreshVirtualController()));
-        settings.addView(VirtualControllerSettings.layoutControl(this,this::refreshVirtualController));
-        if(source!=null)settings.addView(DisplayRate.checkbox(this));
-        if(source!=null)settings.addView(DualScreenOptions.controls(this,Library.get(this,source.id),()->{}));
-        settings.addView(PlayerDebugSettings.controls(this,enabled->{
+        if(menu!=null || diagnostics!=null || web==null)return;
+        menu=new FrameLayout(this);menu.setBackgroundColor(0x66000000);
+        menu.setOnClickListener(v->closeMenu());
+        LinearLayout content=Ui.column(this);content.setPadding(Ui.dp(this,16),Ui.dp(this,12),Ui.dp(this,16),Ui.dp(this,12));
+        content.setBackground(Ui.background(Ui.BG,Ui.dp(this,16)));content.setOnClickListener(v->{});
+        content.addView(Ui.text(this,R.string.app_menu,20,Ui.TEXT));
+        content.addView(Ui.button(this,game==null?R.string.back_to_test:R.string.back_to_game,this::closeMenu));
+        content.addView(Ui.button(this,R.string.controller_mapping,()->startActivity(new Intent(this,ControllerActivity.class))));
+        content.addView(Ui.button(this,R.string.diagnostics_copy_log,this::showLog));
+        content.addView(Ui.button(this,game==null?R.string.close_tester:R.string.back_to_library,this::finish));
+        content.addView(VirtualControllerSettings.checkbox(this,enabled->refreshVirtualController()));
+        content.addView(VirtualControllerSettings.layoutControl(this,this::refreshVirtualController));
+        content.addView(VirtualControllerSettings.transparencyControl(this));
+        if(game!=null)content.addView(DisplayRate.checkbox(this));
+        content.addView(PlayerDebugSettings.controls(this,enabled->{
             WebView.setWebContentsDebuggingEnabled(PlayerDebugSettings.remoteEnabled(this));
-            debugState="";js("PadPortDebug.setEnabled("+enabled+")");
+            debugState="";
+            if(server!=null)server.command("debug:"+enabled);
+            else js("PadPortDebug.setEnabled("+enabled+")");
         }));
-        menu=Ui.menuDialog(this,source==null?getString(R.string.controller_tester):source.title,options,settings,(dialog,n)->{
-            if(n==1)startActivity(new Intent(this,ControllerActivity.class));
-            else if(source!=null && n==2){exporting=true;js("PadPort.exportSaves()");}
-            else if(source!=null && n==3){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,IMPORT);}
-            else if(source!=null && (n==4 || n==5))confirmDirectoryTransfer(n==5);
-            else if(n==(source==null?2:6))showLog();
-            else if(n==(source==null?3:7))finish();
-        });
-        menu.setOnDismissListener(d->{menu=null;if(foreground&&!isFinishing())resumeGame();});menu.show();
+        ScrollView scroll=new ScrollView(this);scroll.addView(content);
+        FrameLayout.LayoutParams panel=new FrameLayout.LayoutParams(Math.min(Ui.dp(this,320),getResources().getDisplayMetrics().widthPixels-Ui.dp(this,24)),-1,Gravity.TOP|Gravity.END);
+        panel.setMargins(Ui.dp(this,12),Ui.dp(this,12),Ui.dp(this,12),Ui.dp(this,12));
+        menu.addView(scroll,panel);root.addView(menu,new FrameLayout.LayoutParams(-1,-1));
+        menuButton.setVisibility(View.INVISIBLE);
+        pauseGame();
     }
-    private void confirmDirectoryTransfer(boolean exporting) {
-        new AlertDialog.Builder(this).setTitle(exporting ? R.string.export_directory_saves : R.string.import_directory_saves)
-            .setMessage(exporting ? R.string.export_directory_details : R.string.import_directory_details)
-            .setPositiveButton(R.string.ok, (d,n) -> js("PadPortSaveTransfer.transfer('" + (exporting ? "export" : "import") + "')"))
-            .setNegativeButton(R.string.cancel, null).show();
+    private void closeMenu(){
+        if(menu!=null){root.removeView(menu);menu=null;}
+        if(menuButton!=null)menuButton.setVisibility(View.VISIBLE);
+        syncPlayback();
     }
-    private synchronized void log(String text){logs.add(text.length()>2000?text.substring(0,2000):text);while(logs.size()>120)logs.remove();}
+    private void log(String text){log(text,text.startsWith("ERROR ")||text.startsWith("PROMISE "));}
+    private void log(String text,boolean error){
+        if(logs.add(text,error))android.util.Log.println(error?android.util.Log.ERROR:android.util.Log.INFO,"PadPort-Player",text);
+    }
     private volatile String debugState="";
     private void showLog(){
-        String content;
-        synchronized(this){content=String.join("\n",logs);}
+        if(diagnostics!=null)return;
+        String content=logs.report();
         if(!debugState.isEmpty())content+="\n\n"+debugState;
         final String report=content;
         TextView text=Ui.text(this,content,12,Ui.TEXT);text.setTextIsSelectable(true);ScrollView scroll=new ScrollView(this);scroll.addView(text);
-        new AlertDialog.Builder(this).setTitle(R.string.game_diagnostics).setView(scroll).setPositiveButton(R.string.close,null)
-            .setNeutralButton(R.string.copy,(d,n)->((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("PadPort log",report))).show();
+        diagnostics=new AlertDialog.Builder(this).setTitle(R.string.game_diagnostics).setView(scroll).setPositiveButton(R.string.close,null)
+            .setNeutralButton(R.string.copy,(d,n)->((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("PadPort log",report))).create();
+        diagnostics.setOnDismissListener(d->{diagnostics=null;syncPlayback();});
+        pauseGame();diagnostics.show();
     }
-    private void error(String message){log(message);new AlertDialog.Builder(this).setTitle(R.string.app_name).setMessage(message).setPositiveButton(R.string.ok,null).show();}
     public final class Host {
+        @JavascriptInterface public void playbackPaused(int revision){runOnUiThread(()->finishPause(revision));}
         @JavascriptInterface public void debugState(String state){
             if(PlayerDebugSettings.enabled(PlayerActivity.this)&&state.length()<=32768)debugState=state;
         }
-        @JavascriptInterface public void directoryTransfer(String request, int id) {
-            GameSaveTransfer current=saveTransfer;
-            if(current==null)return;
-            worker.execute(() -> {
-                String response=current.execute(request);
-                runOnUiThread(() -> {if(web!=null&&!isDestroyed()&&current==saveTransfer)
-                    js("PadPortSaveTransfer.complete("+id+","+response+")");});
-            });
-        }
-        @JavascriptInterface public void directoryExportReady(int count) {
-            runOnUiThread(() -> {if(!isDestroyed()) Toast.makeText(PlayerActivity.this,
-                getString(R.string.directory_saves_exported,count),Toast.LENGTH_LONG).show();});
-        }
-        @JavascriptInterface public String markerFile(String request){
-            GameMarkers current=gameMarkers;
-            return current==null?"{\"ok\":false,\"error\":\"No game is open\"}":current.execute(request);
-        }
-        @JavascriptInterface public String dualPoll(){DualScreenSession current=dualScreen;return current==null?"{\"active\":false}":current.channel.poll();}
-        @JavascriptInterface public void dualSnapshot(String json){DualScreenSession current=dualScreen;if(current!=null)current.snapshot(json);}
         @JavascriptInterface public String snapshot(){return controllers.snapshot();}
         @JavascriptInterface public void log(String message){PlayerActivity.this.log(message);}
-        @JavascriptInterface public void exportReady(String payload){
-            if(!exporting)return;exporting=false;
-            if(payload.length()>32*1024*1024){saveError(getString(R.string.backup_too_large));return;}
-            runOnUiThread(()->{
-                if(isDestroyed())return;exportPayload=payload;
-                Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE);
-                intent.putExtra(Intent.EXTRA_TITLE,"PadPort-"+(source==null?"game":source.title.replaceAll("[^\\p{L}\\p{N} ._-]","_"))+"-saves.json");
-                startActivityForResult(intent,EXPORT);
-            });
-        }
-        @JavascriptInterface public void importReady(){runOnUiThread(()->{if(web!=null&&!isDestroyed()){Toast.makeText(PlayerActivity.this,R.string.saves_restored,Toast.LENGTH_LONG).show();web.reload();}});}
-        @JavascriptInterface public void saveError(String message){exporting=false;runOnUiThread(()->{if(!isDestroyed())error(message);});}
     }
-    @Override protected void onActivityResult(int request,int result,Intent data){
-        super.onActivityResult(request,result,data);
-        if(result!=RESULT_OK || data==null || data.getData()==null){if(request==EXPORT)exportPayload=null;return;}
-        Uri uri=data.getData();
-        if(request==EXPORT && exportPayload!=null){
-            String payload=exportPayload;exportPayload=null;
-            worker.execute(()->{
-                try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){
-                    if(out==null)throw new IOException(getString(R.string.file_access_error));out.write(payload.getBytes(StandardCharsets.UTF_8));
-                    runOnUiThread(()->Toast.makeText(this,R.string.backup_exported,Toast.LENGTH_LONG).show());
-                }catch(Exception e){runOnUiThread(()->{if(!isDestroyed())error(e.toString());});}
-            });
-        }else if(request==IMPORT){
-            worker.execute(()->{
-                try(InputStream in=getContentResolver().openInputStream(uri)){
-                    if(in==null)throw new IOException(getString(R.string.backup_access_error));
-                    JSONObject backup=new JSONObject(new String(GameSource.readBounded(this,in,32*1024*1024),StandardCharsets.UTF_8));
-                    runOnUiThread(()->{if(!isDestroyed())new AlertDialog.Builder(this).setTitle(R.string.restore_question)
-                        .setMessage(R.string.restore_details)
-                        .setPositiveButton(R.string.restore,(d,n)->js("PadPort.restore("+backup+")")).setNegativeButton(R.string.cancel,null).show();});
-                }catch(Exception e){runOnUiThread(()->{if(!isDestroyed())error(e.toString());});}
-            });
-        }
+    public final class FilesHost {
+        @JavascriptInterface public void playbackPaused(int revision){runOnUiThread(()->finishPause(revision));}
+        @JavascriptInterface public String request(String token,String command){return server.request(token,command);}
     }
     /** The WebView renderer died (crash or low-memory kill). Keep the app, offer a restart. */
     private void renderGone(boolean crashed){
-        if(dualScreen!=null)dualScreen.pause();
-        log("WebView renderer "+(crashed?"crashed":"was killed by the system to free memory"));
+
+        log("WebView renderer "+(crashed?"crashed":"was killed by the system to free memory"),true);
         webReady=false;if(keyboard!=null)keyboard.clear();
-        if(web!=null){WebView dead=web;web=null;root.removeView(dead);dead.removeJavascriptInterface("PadPortHost");dead.destroy();}
-        if(menu!=null){menu.dismiss();menu=null;}
+        if(web!=null){WebView dead=web;web=null;root.removeView(dead);dead.removeJavascriptInterface("PadPortHost");dead.removeJavascriptInterface("PadPortFiles");dead.resumeTimers();dead.destroy();}
+        if(diagnostics!=null)diagnostics.dismiss();
+        if(menu!=null){root.removeView(menu);menu=null;}
         if(isFinishing()||isDestroyed())return;
         new AlertDialog.Builder(this).setTitle(R.string.renderer_gone_title)
             .setMessage(crashed?R.string.renderer_crashed:R.string.renderer_killed)
-            .setPositiveButton(R.string.renderer_restart,(d,n)->setup(source))
+            .setPositiveButton(R.string.renderer_restart,(d,n)->setup(game))
             .setNegativeButton(R.string.back_to_library,(d,n)->finish()).setCancelable(false).show();
     }
     @Override protected void onDestroy(){
-        if(dualScreen!=null){dualScreen.close();dualScreen=null;}
-        menuHandler.removeCallbacks(hideMenuButton);
         webReady=false;if(keyboard!=null)keyboard.clear();
         if(virtualControls!=null)virtualControls.suspend();
         if(controllers!=null)controllers.close();
-        if(web!=null){root.removeView(web);web.removeJavascriptInterface("PadPortHost");web.destroy();web=null;}
-        worker.shutdown();super.onDestroy();
+        if(web!=null){root.removeView(web);web.removeJavascriptInterface("PadPortHost");web.removeJavascriptInterface("PadPortFiles");web.resumeTimers();web.destroy();web=null;}
+        if(server!=null)server.close();
+        super.onDestroy();
     }
 }

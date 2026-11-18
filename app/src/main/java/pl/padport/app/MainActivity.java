@@ -62,7 +62,7 @@ public class MainActivity extends LocalizedActivity {
         if(games.isEmpty()) root.addView(Ui.text(this,R.string.empty_library,15,Ui.MUTED));
         for(JSONObject game:games) {
             // Engine is read at launch time, so a change in the ⋮ menu applies to the next Play.
-            GameCard card=new GameCard(this,game,()->launchGame(game,GameEngine.player(this,game)),()->gameOptions(game));
+            GameCard card=new GameCard(this,game,()->launchGame(game,GameEngine.player(game)),()->gameOptions(game));
             cards.add(card);root.addView(card);
         }
         root.addView(Ui.text(this,getString(R.string.library_footer,"0.6.11"),12,Ui.MUTED));
@@ -101,8 +101,6 @@ public class MainActivity extends LocalizedActivity {
     private void gameOptions(JSONObject game){
         LinearLayout settings=Ui.column(this);
         // Only non-empty panels: menuDialog pads the settings area when it has children.
-        for(LinearLayout panel:new LinearLayout[]{GameEngine.controls(this,game,this::show),DualScreenOptions.controls(this,game,this::show)})
-            if(panel.getChildCount()>0)settings.addView(panel);
         Ui.menuDialog(this,game.optString("title"),
                     new String[]{getString(R.string.refresh_game),getString(R.string.card_artwork),getString(R.string.remove_game)},settings,(d,n)->{
                 if(n==0)scan(Uri.parse(game.optString("uri")));
@@ -185,15 +183,14 @@ public class MainActivity extends LocalizedActivity {
     }
     private void continueAdding(GameSource source,JSONObject record){
         Runnable add=()->{Library.put(this,record);show();Toast.makeText(this,getString(R.string.game_added,source.title),Toast.LENGTH_SHORT).show();};
-        Runnable offerDual=()->offerDualScreen(record,add);
         // XP/VX/VX Ace run on the experimental native engine: ask once, when the game is added.
         if(source.isRgss()&&Library.get(this,source.id)==null){
             show();
             new AlertDialog.Builder(this).setTitle(R.string.rgss_experimental_title)
                 .setMessage(getString(R.string.rgss_experimental_message,source.title,source.engine))
-                .setPositiveButton(R.string.rgss_experimental_continue,(d,n)->offerDual.run())
+                .setPositiveButton(R.string.rgss_experimental_continue,(d,n)->add.run())
                 .setNegativeButton(R.string.cancel,null).setCancelable(false).show();
-        }else offerDual.run();
+        }else add.run();
     }
     private boolean writable(Uri uri){
         for(var permission:getContentResolver().getPersistedUriPermissions())
@@ -233,17 +230,6 @@ public class MainActivity extends LocalizedActivity {
         });
     }
     private void error(Exception e) {new AlertDialog.Builder(this).setTitle(R.string.open_game_error).setMessage(e.toString()).setPositiveButton(R.string.ok,null).show();}
-    private void offerDualScreen(JSONObject game,Runnable add){
-        if(!DualScreenProfile.shouldOffer(game,Library.get(this,game.optString("id"))!=null,SecondaryDisplays.find(this)!=null)){add.run();return;}
-        show();
-        new AlertDialog.Builder(this).setTitle(R.string.dual_screen_question_title)
-            .setMessage(getString(R.string.dual_screen_question,game.optString("title"),DualScreenOptions.description(this,game)))
-            .setPositiveButton(R.string.dual_screen_enable,(d,n)->{
-                add.run();
-                if(!Library.setDualScreen(this,game.optString("id"),true))Toast.makeText(this,R.string.controller_setting_error,Toast.LENGTH_LONG).show();
-                show();
-            }).setNegativeButton(R.string.dual_screen_not_now,(d,n)->add.run()).setCancelable(false).show();
-    }
     @Override protected void onDestroy() {
         if(artworkObserver!=null&&artworkObserver.isAlive())artworkObserver.removeOnScrollChangedListener(artworkScroll);
         worker.shutdown();super.onDestroy();

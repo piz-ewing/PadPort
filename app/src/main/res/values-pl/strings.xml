@@ -3,17 +3,6 @@
     <string name="virtual_controller_layout">Układ przycisków</string>
     <string name="virtual_layout_default">Styl domyślny</string>
     <string name="virtual_layout_mtool">Styl mtool</string>
-    <string name="dual_screen_option">%1$s — interfejs dwuekranowy</string>
-    <string name="ttm_dual_hint">Zebrane notatki, przedmioty i biogramy aktualnych postaci na drugim ekranie. Notatnik korzysta z bieżącego stanu gry.</string>
-    <string name="dual_screen_hint">Stan drużyny i ekwipunek na drugim ekranie. Ustawienie jest zapamiętywane dla tej gry.</string>
-    <string name="ef_dual_hint">Twoja postać na drugim ekranie: portret, HP/MP, energia, efekty i wyposażenie, a do tego godzina, pogoda i złoto. Niebo zmienia się z porą dnia i roku. Z dolnego ekranu można też korzystać z menu przedmiotów, przez akcje samej gry.</string>
-    <string name="fh_dual_hint">Stan drużyny na drugim ekranie: portrety, ciało i umysł, utracone kończyny, stany takie jak głód, strach czy krwawienie oraz wyposażenie. Menu i walka zostają na głównym ekranie.</string>
-    <string name="dual_screen_no_display">Drugi ekran jest niedostępny. Ustawienie zostaje zapamiętane; zwykły interfejs nadal działa.</string>
-    <string name="dual_screen_badge">Włączony interfejs dwuekranowy</string>
-    <string name="dual_screen_question_title">Użyć obu ekranów?</string>
-    <string name="dual_screen_question">Wykryto drugi ekran. Włączyć interfejs dwuekranowy dla %1$s? %2$s Możesz to później zmienić w menu gry.</string>
-    <string name="dual_screen_enable">Włącz</string>
-    <string name="dual_screen_not_now">Nie teraz</string>
     <string name="ui_language">pl</string>
     <string name="tagline">Graj w gry z RPG Magera na Androidzie!</string>
     <string name="library_hint">Otwórz oryginalny folder gry: RPG Maker MV/MZ (index.html, www lub app.asar) lub XP/VX/VX Ace (Game.ini). Pliki gry pozostają na swoim miejscu.</string>
@@ -55,7 +44,7 @@
     <string name="opening_game">Otwieram oryginalne pliki gry…</string>
     <string name="game_not_in_library">Nie ma tej gry w bibliotece.</string>
     <string name="launch_error">Nie można uruchomić gry</string>
-    <string name="launch_error_details">%1$s\n\nW bibliotece odśwież indeks albo ponownie wskaż folder gry.</string>
+    <string name="launch_error_details">%1$s</string>
     <string name="app_menu">Menu aplikacji</string>
     <string name="back_to_test">Wróć do testu</string>
     <string name="back_to_game">Wróć do gry</string>
@@ -113,11 +102,6 @@
     <string name="folder_read_error">Nie można odczytać folderu gry.</string>
     <string name="index_missing">Nie znaleziono gry. Wybierz folder z index.html, www, app.asar lub resources/app.asar (MV/MZ) albo z Game.ini (XP/VX/VX Ace).</string>
     <string name="unsupported_engine">Ten folder nie zawiera gry RPG Maker MV/MZ/XP/VX/VX Ace.</string>
-    <string name="engine_gecko_option">Używaj GeckoView (silnik 64-bitowy)</string>
-    <string name="engine_gecko_hint">Zalecane: więcej pamięci dla dużych gier. Wyłącz, aby zamiast tego używać Android System WebView. Ustawienie jest zapamiętywane dla tej gry.</string>
-    <string name="engine_switch_title">Zmienić silnik gry?</string>
-    <string name="engine_switch_message">Zapisy nie są wspólne dla GeckoView i Android System WebView. Po zmianie %1$s nie zobaczy zapisów zrobionych w drugim silniku. Nie zostaną usunięte: po powrocie do poprzedniego silnika znów będą widoczne.</string>
-    <string name="engine_switch_confirm">Zmień silnik</string>
     <string name="renderer_gone_title">Gra została przerwana</string>
     <string name="renderer_crashed">Proces Android System WebView, w którym działa gra, uległ awarii. Zapisy gry są zachowane; utracony jest postęp od ostatniego zapisu.</string>
     <string name="renderer_crashed_gecko">Silnik GeckoView, w którym działa gra, uległ awarii. Zapisy gry są zachowane; utracony jest postęp od ostatniego zapisu.</string>
@@ -154,5 +138,5 @@
     <string name="export_directory_details">Skopiuj zapisane stany z PadPort do folderu save gry (zwykle www/save). Pasujące pliki zostaną zastąpione. Bieżący niezapisany postęp nie zostanie zapisany.</string>
     <string name="directory_saves_exported">Wyeksportowano pliki zapisów do folderu gry: %1$d.</string>
     <string name="player_debug">Debugowanie gry</string>
-    <string name="player_debug_details">Włącza debugowanie strony przez ADB i zbieranie stanu gry. GeckoView: Firefox about:debugging; WebView: Chrome chrome://inspect. Działa od razu, także w wersji release. Wyłącz po zakończeniu.</string>
+    <string name="player_debug_details">Włącza debugowanie strony przez ADB i zbieranie stanu gry. Połącz się przez Chrome chrome://inspect. Działa od razu, także w wersji release. Wyłącz po zakończeniu.</string>
 </resources>
