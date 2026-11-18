@@ -1,6 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="virtual_controller_layout">按键布局</string>
+    <string name="virtual_dynamic_center">动态生成中心</string>
+    <string name="virtual_dynamic_center_hint">在屏幕左半区触摸时，以落点生成摇杆中心；已有按键优先响应。</string>
+    <string name="virtual_dragging_origin">边缘随动</string>
+    <string name="virtual_dragging_origin_hint">手指超出外圈缓冲区后，底座跟随移动，缩短反向操作的回程。</string>
     <string name="virtual_layout_default">默认风格</string>
     <string name="virtual_layout_mtool">mtool 风格</string>
     <string name="ui_language">zh</string>

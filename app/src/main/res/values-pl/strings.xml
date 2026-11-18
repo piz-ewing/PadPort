@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="virtual_controller_layout">Układ przycisków</string>
+    <string name="virtual_dynamic_center">Dynamiczny środek</string>
+    <string name="virtual_dynamic_center_hint">Dotknięcie lewej połowy ekranu ustawia środek gałki. Przyciski mają pierwszeństwo.</string>
+    <string name="virtual_dragging_origin">Podążanie podstawy</string>
+    <string name="virtual_dragging_origin_hint">Po przekroczeniu zewnętrznego bufora podstawa podąża za palcem, skracając ruch potrzebny do zmiany kierunku.</string>
     <string name="virtual_layout_default">Styl domyślny</string>
     <string name="virtual_layout_mtool">Styl mtool</string>
     <string name="ui_language">pl</string>

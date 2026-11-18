@@ -26,6 +26,14 @@ final class VirtualControllerSettings {
     private static File flag(Context context){return new File(context.getFilesDir(),"on-screen-controller.enabled");}
     private static File transparencyFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.transparency");}
     private static File layoutFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.layout");}
+    private static File stickFile(Context context,boolean dragging){return new File(context.getFilesDir(),dragging?"on-screen-controller.dragging-origin":"on-screen-controller.dynamic-center");}
+    static boolean dynamicCenter(Context context){return readStickOption(stickFile(context,false));}
+    static boolean draggingOrigin(Context context){return readStickOption(stickFile(context,true));}
+    private static boolean readStickOption(File file){
+        try{return !"false".equals(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8).trim());}
+        catch(java.nio.file.NoSuchFileException e){return true;}
+        catch(IOException e){android.util.Log.w("TouchController","Unable to read joystick setting",e);return true;}
+    }
     static boolean mtoolLayout(Context context){return readLayout(layoutFile(context));}
     static boolean readLayout(File file){
         try{return "mtool".equals(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8).trim());}
@@ -116,6 +124,27 @@ final class VirtualControllerSettings {
             }
             public void onNothingSelected(AdapterView<?> parent){}
         });
+        panel.addView(stickOption(activity,false,changed));
+        panel.addView(Ui.text(activity,R.string.virtual_dynamic_center_hint,12,Ui.MUTED));
+        panel.addView(stickOption(activity,true,changed));
+        panel.addView(Ui.text(activity,R.string.virtual_dragging_origin_hint,12,Ui.MUTED));
         return panel;
+    }
+    private static CheckBox stickOption(Activity activity,boolean dragging,Runnable changed){
+        File file=stickFile(activity,dragging);
+        CheckBox box=new CheckBox(activity);
+        box.setText(dragging?R.string.virtual_dragging_origin:R.string.virtual_dynamic_center);
+        box.setMinHeight(Ui.dp(activity,48));
+        box.setChecked(readStickOption(file));
+        box.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener(){
+            public void onCheckedChanged(CompoundButton button,boolean checked){
+                try{writeSetting(file,Boolean.toString(checked));changed.run();}
+                catch(IOException e){
+                    button.setOnCheckedChangeListener(null);button.setChecked(readStickOption(file));button.setOnCheckedChangeListener(this);
+                    Toast.makeText(activity,R.string.controller_setting_error,Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+        return box;
     }
 }

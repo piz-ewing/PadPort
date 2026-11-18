@@ -97,6 +97,17 @@ public class VirtualPadTest {
             assertTrue(Math.hypot(button.centerX()-layout.dpadX,button.centerY()-layout.dpadY)>layout.dpadRadius+radius);
         }
     }
+    @Test public void cardinalDirectionsHaveLargerSectorsThanDiagonals(){
+        VirtualPadLayout layout=new VirtualPadLayout(1280,720,2,true);
+        int[] masks={1<<15,(1<<15)|(1<<13),1<<13,(1<<13)|(1<<14),1<<14,(1<<14)|(1<<12),1<<12,(1<<12)|(1<<15)};
+        for(int sector=0;sector<8;sector++){
+            assertEquals((sector&1)==0?60:30,VirtualPadLayout.sectorSweep(sector),0);
+            for(float offset:new float[]{-0.49f,0,.49f}){
+                double angle=Math.toRadians(sector*45+offset*VirtualPadLayout.sectorSweep(sector));
+                assertEquals(masks[sector],layout.maskAt(layout.dpadX+(float)Math.cos(angle)*layout.dpadRadius*.8f,layout.dpadY+(float)Math.sin(angle)*layout.dpadRadius*.8f));
+            }
+        }
+    }
     @Test public void keyboardTouchesCombineWithMovementAndReleaseIndependently(){
         VirtualPadState state=active();
         state.touch(1,1<<12);state.touch(2,0);state.touchKey(2,KeyEvent.KEYCODE_Z);

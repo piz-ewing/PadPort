@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="virtual_controller_layout">Button layout</string>
+    <string name="virtual_dynamic_center">Dynamic center</string>
+    <string name="virtual_dynamic_center_hint">Start the stick where you touch the left half of the screen. Buttons take priority.</string>
+    <string name="virtual_dragging_origin">Dragging origin</string>
+    <string name="virtual_dragging_origin_hint">The base follows your finger beyond the outer buffer, keeping direction changes close.</string>
     <string name="virtual_layout_default">Default style</string>
     <string name="virtual_layout_mtool">mtool style</string>
     <string name="app_name" translatable="false">PadPort</string>
