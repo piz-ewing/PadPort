@@ -22,6 +22,7 @@ final class VirtualControllerView extends View {
     private boolean mtool;
     private boolean dynamicCenter,draggingOrigin;
     private VirtualStick stick;
+    private VirtualControllerSettings.StickLayout stickLayout=VirtualControllerSettings.StickLayout.DEFAULT;
     private int stickPointer=-1;
     private final Rect gestureExclusion=new Rect();
 
@@ -35,8 +36,9 @@ final class VirtualControllerView extends View {
         setAlpha(VirtualControllerSettings.alpha(getContext()));
         boolean selected=VirtualControllerSettings.mtoolLayout(getContext());
         boolean dynamic=VirtualControllerSettings.dynamicCenter(getContext()),dragging=VirtualControllerSettings.draggingOrigin(getContext());
-        if(layout==null||mtool!=selected||dynamicCenter!=dynamic||draggingOrigin!=dragging){
-            mtool=selected;dynamicCenter=dynamic;draggingOrigin=dragging;state.clear();rebuildLayout();
+        VirtualControllerSettings.StickLayout geometry=VirtualControllerSettings.stickLayout(getContext());
+        if(layout==null||mtool!=selected||dynamicCenter!=dynamic||draggingOrigin!=dragging||!stickLayout.equals(geometry)){
+            mtool=selected;dynamicCenter=dynamic;draggingOrigin=dragging;stickLayout=geometry;state.clear();rebuildLayout();
         }
         state.enabled(enabled);state.paused(!interactive);
         resetStick();setVisibility(enabled?VISIBLE:GONE);updateGestureExclusion();hub.virtualChanged();invalidate();
@@ -49,12 +51,14 @@ final class VirtualControllerView extends View {
     }
     private void rebuildLayout(){
         DisplayMetrics metrics=getResources().getDisplayMetrics();
-        layout=new VirtualPadLayout(getWidth(),getHeight(),metrics.density,mtool);
+        layout=new VirtualPadLayout(getWidth(),getHeight(),metrics.density,mtool,stickLayout.scale(),stickLayout.x(),stickLayout.y());
         float xdpi=metrics.xdpi>0&&Float.isFinite(metrics.xdpi)?metrics.xdpi:metrics.densityDpi;
         float ydpi=metrics.ydpi>0&&Float.isFinite(metrics.ydpi)?metrics.ydpi:metrics.densityDpi;
-        float rx=Math.max(1,Math.min(12*VirtualPadLayout.DPAD_SCALE*xdpi/25.4f,getWidth()/4f));
-        float ry=Math.max(1,Math.min(12*VirtualPadLayout.DPAD_SCALE*ydpi/25.4f,getHeight()/2f));
-        stick=new VirtualStick(getWidth(),getHeight(),rx,ry,layout.dpadX,layout.dpadY);
+        float rx=Math.max(1,Math.min(12*stickLayout.scale()*xdpi/25.4f,getWidth()/4f));
+        float ry=Math.max(1,Math.min(12*stickLayout.scale()*ydpi/25.4f,getHeight()/2f));
+        float x=.4f*rx+Math.max(0,getWidth()/2f-1.4f*rx)*stickLayout.x();
+        float y=ry+Math.max(0,getHeight()-2*ry)*stickLayout.y();
+        stick=new VirtualStick(getWidth(),getHeight(),rx,ry,x,y);
         stickPointer=-1;
     }
     private boolean movableStick(){return dynamicCenter||draggingOrigin;}

@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="virtual_controller_layout">Układ przycisków</string>
+    <string name="virtual_stick_layout">Rozmiar i pozycja gałki</string>
+    <string name="virtual_stick_size">Rozmiar: %1$d%%</string>
+    <string name="virtual_stick_horizontal">Pozycja pozioma: %1$d%%</string>
+    <string name="virtual_stick_vertical">Pozycja pionowa: %1$d%%</string>
+    <string name="virtual_stick_layout_hint">Poziomo: od lewej do prawej w lewej połowie ekranu. Pionowo: od góry do dołu. Przy dynamicznym środku jest to pozycja spoczynkowa; dotknięcie wyznacza nowy środek.</string>
+    <string name="virtual_stick_reset">Przywróć układ</string>
     <string name="virtual_dynamic_center">Dynamiczny środek</string>
     <string name="virtual_dynamic_center_hint">Dotknięcie lewej połowy ekranu ustawia środek gałki. Przyciski mają pierwszeństwo.</string>
     <string name="virtual_dragging_origin">Podążanie podstawy</string>

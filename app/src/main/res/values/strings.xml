@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="virtual_controller_layout">Button layout</string>
+    <string name="virtual_stick_layout">Joystick size and position</string>
+    <string name="virtual_stick_size">Size: %1$d%%</string>
+    <string name="virtual_stick_horizontal">Horizontal position: %1$d%%</string>
+    <string name="virtual_stick_vertical">Vertical position: %1$d%%</string>
+    <string name="virtual_stick_layout_hint">Horizontal: left to right within the left half of the screen. Vertical: top to bottom. With dynamic center enabled, this sets the resting position; touching the screen sets a new center.</string>
+    <string name="virtual_stick_reset">Reset layout</string>
     <string name="virtual_dynamic_center">Dynamic center</string>
     <string name="virtual_dynamic_center_hint">Start the stick where you touch the left half of the screen. Buttons take priority.</string>
     <string name="virtual_dragging_origin">Dragging origin</string>

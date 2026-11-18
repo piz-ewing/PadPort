@@ -1,6 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="virtual_controller_layout">按键布局</string>
+    <string name="virtual_stick_layout">摇杆大小和位置</string>
+    <string name="virtual_stick_size">大小：%1$d%%</string>
+    <string name="virtual_stick_horizontal">水平位置：%1$d%%</string>
+    <string name="virtual_stick_vertical">垂直位置：%1$d%%</string>
+    <string name="virtual_stick_layout_hint">水平从左半屏的左侧到右侧，垂直从上到下。开启动态生成中心时，这里设置的是松手后的初始位置，落指后仍以触摸位置生成中心。</string>
+    <string name="virtual_stick_reset">恢复默认布局</string>
     <string name="virtual_dynamic_center">动态生成中心</string>
     <string name="virtual_dynamic_center_hint">在屏幕左半区触摸时，以落点生成摇杆中心；已有按键优先响应。</string>
     <string name="virtual_dragging_origin">边缘随动</string>

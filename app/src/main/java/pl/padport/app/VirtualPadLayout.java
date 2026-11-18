@@ -4,7 +4,6 @@ import android.view.KeyEvent;
 
 /** Responsive hit areas in standard Gamepad button order. */
 final class VirtualPadLayout {
-    static final float DPAD_SCALE=1.8f;
     record Button(String label,int index,float left,float top,float right,float bottom,boolean round,int key){
         Button(String label,int index,float left,float top,float right,float bottom,boolean round){this(label,index,left,top,right,bottom,round,0);}
         boolean contains(float x,float y){return x>=left&&x<=right&&y>=top&&y<=bottom;}
@@ -19,13 +18,17 @@ final class VirtualPadLayout {
 
     VirtualPadLayout(int width,int height,float density){this(width,height,density,false);}
     VirtualPadLayout(int width,int height,float density,boolean mtool){
+        this(width,height,density,mtool,VirtualControllerSettings.StickLayout.DEFAULT.scale(),
+            VirtualControllerSettings.StickLayout.DEFAULT.x(),VirtualControllerSettings.StickLayout.DEFAULT.y());
+    }
+    VirtualPadLayout(int width,int height,float density,boolean mtool,float scale,float horizontal,float vertical){
         this.mtool=mtool;
         float base=Math.min(density,Math.min(width/480f,height/320f));
         unit=Math.max(.01f,mtool?Math.min(base*1.3f,Math.min(width/400f,height/270f)):base);
-        dpadUnit=Math.max(.01f,Math.min(unit*DPAD_SCALE,Math.min(width/4f,height/2f)/(mtool?80:66)));
+        dpadUnit=Math.max(.01f,Math.min(unit*scale,Math.min(width/4f,height/2f)/(mtool?80:66)));
         dpadRadius=(mtool?80:66)*dpadUnit;
-        dpadX=PadMath.clamp(100*unit,dpadRadius,Math.max(dpadRadius,width/2f-dpadRadius));
-        dpadY=PadMath.clamp(height-(mtool?90:94)*unit,dpadRadius,Math.max(dpadRadius,height-dpadRadius));
+        dpadX=dpadRadius+Math.max(0,width/2f-2*dpadRadius)*horizontal;
+        dpadY=dpadRadius+Math.max(0,height-2*dpadRadius)*vertical;
         if(mtool){
             buttons=new Button[]{
                 key("Esc",KeyEvent.KEYCODE_ESCAPE,50*unit,28*unit,16*unit),
