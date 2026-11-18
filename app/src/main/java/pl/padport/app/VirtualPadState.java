@@ -18,7 +18,7 @@ final class VirtualPadState {
     boolean interactive(){return enabled&&!paused;}
     boolean tracks(int pointer){return pointers.containsKey(pointer);}
     void enabled(boolean value){if(enabled!=value){enabled=value;clear();}}
-    void paused(boolean value){paused=value;clear();}
+    void paused(boolean value){if(paused!=value){paused=value;clear();}}
     void touch(int pointer,int mask){if(interactive())pointers.put(pointer,mask&ALL_BUTTONS);}
     void touchKey(int pointer,int key){if(interactive()){if(key==0)keyPointers.remove(pointer);else keyPointers.put(pointer,key);}}
     Set<Integer> keys(){return interactive()?new HashSet<>(keyPointers.values()):new HashSet<>();}

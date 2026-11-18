@@ -3,12 +3,11 @@
     <string name="virtual_controller_layout">按键布局</string>
     <string name="virtual_stick_layout">摇杆大小和位置</string>
     <string name="virtual_stick_size">大小：%1$d%%</string>
-    <string name="virtual_stick_horizontal">水平位置：%1$d%%</string>
-    <string name="virtual_stick_vertical">垂直位置：%1$d%%</string>
-    <string name="virtual_stick_layout_hint">水平从左半屏的左侧到右侧，垂直从上到下。开启动态生成中心时，这里设置的是松手后的初始位置，落指后仍以触摸位置生成中心。</string>
+    <string name="virtual_stick_layout_hint">拖动摇杆调整位置，拖动右下角手柄调整大小，点击保存生效。</string>
+    <string name="virtual_stick_save">保存</string>
     <string name="virtual_stick_reset">恢复默认布局</string>
-    <string name="virtual_dynamic_center">动态生成中心</string>
-    <string name="virtual_dynamic_center_hint">在屏幕左半区触摸时，以落点生成摇杆中心；已有按键优先响应。</string>
+    <string name="virtual_input_prediction">输入预测</string>
+    <string name="virtual_input_prediction_hint">根据近期按键、触点移动调整隐形热区。短促方向点按固定中心，持续移动时按边缘随动设置处理。</string>
     <string name="virtual_dragging_origin">边缘随动</string>
     <string name="virtual_dragging_origin_hint">手指超出外圈缓冲区后，底座跟随移动，缩短反向操作的回程。</string>
     <string name="virtual_layout_default">默认风格</string>

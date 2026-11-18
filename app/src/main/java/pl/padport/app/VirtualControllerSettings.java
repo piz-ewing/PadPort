@@ -1,13 +1,11 @@
 package pl.padport.app;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView;
@@ -34,7 +32,7 @@ final class VirtualControllerSettings {
     private static File flag(Context context){return new File(context.getFilesDir(),"on-screen-controller.enabled");}
     private static File transparencyFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.transparency");}
     private static File layoutFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.layout");}
-    private static File stickFile(Context context,boolean dragging){return new File(context.getFilesDir(),dragging?"on-screen-controller.dragging-origin":"on-screen-controller.dynamic-center");}
+    private static File stickFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.dragging-origin");}
     private static File stickLayoutFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.stick-layout");}
     static StickLayout stickLayout(Context context){
         try{
@@ -45,11 +43,16 @@ final class VirtualControllerSettings {
         }catch(java.nio.file.NoSuchFileException e){return StickLayout.DEFAULT;}
         catch(IOException|NumberFormatException e){android.util.Log.w("TouchController","Unable to read joystick layout",e);return StickLayout.DEFAULT;}
     }
-    private static void writeStickLayout(Context context,StickLayout layout) throws IOException{
+    static void writeStickLayout(Context context,StickLayout layout) throws IOException{
         writeSetting(stickLayoutFile(context),layout.size()+","+layout.horizontal()+","+layout.vertical());
     }
-    static boolean dynamicCenter(Context context){return readStickOption(stickFile(context,false));}
-    static boolean draggingOrigin(Context context){return readStickOption(stickFile(context,true));}
+    static boolean draggingOrigin(Context context){return readStickOption(stickFile(context));}
+    private static File predictionFile(Context context){return new File(context.getFilesDir(),"on-screen-controller.input-prediction");}
+    static boolean inputPrediction(Context context){
+        try{return "true".equals(new String(Files.readAllBytes(predictionFile(context).toPath()),StandardCharsets.UTF_8).trim());}
+        catch(java.nio.file.NoSuchFileException e){return false;}
+        catch(IOException e){android.util.Log.w("TouchController","Unable to read input prediction setting",e);return false;}
+    }
     private static boolean readStickOption(File file){
         try{return !"false".equals(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8).trim());}
         catch(java.nio.file.NoSuchFileException e){return true;}
@@ -145,54 +148,27 @@ final class VirtualControllerSettings {
             }
             public void onNothingSelected(AdapterView<?> parent){}
         });
-        panel.addView(stickOption(activity,false,changed));
-        panel.addView(Ui.text(activity,R.string.virtual_dynamic_center_hint,12,Ui.MUTED));
-        panel.addView(stickOption(activity,true,changed));
+        panel.addView(stickOption(activity,changed));
         panel.addView(Ui.text(activity,R.string.virtual_dragging_origin_hint,12,Ui.MUTED));
-        panel.addView(Ui.button(activity,R.string.virtual_stick_layout,()->showStickLayout(activity,changed)));
+        CheckBox prediction=new CheckBox(activity);prediction.setText(R.string.virtual_input_prediction);
+        prediction.setMinHeight(Ui.dp(activity,48));prediction.setChecked(inputPrediction(activity));
+        prediction.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener(){
+            public void onCheckedChanged(CompoundButton button,boolean checked){
+                try{writeSetting(predictionFile(activity),Boolean.toString(checked));changed.run();}
+                catch(IOException e){
+                    button.setOnCheckedChangeListener(null);button.setChecked(inputPrediction(activity));button.setOnCheckedChangeListener(this);
+                    Toast.makeText(activity,R.string.controller_setting_error,Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+        panel.addView(prediction);panel.addView(Ui.text(activity,R.string.virtual_input_prediction_hint,12,Ui.MUTED));
+        panel.addView(Ui.button(activity,R.string.virtual_stick_layout,()->VirtualControllerEditor.show(activity,changed)));
         return panel;
     }
-    private static void showStickLayout(Activity activity,Runnable changed){
-        LinearLayout content=Ui.column(activity);
-        StickLayout initial=stickLayout(activity);
-        SeekBar[] sliders=new SeekBar[3];
-        int[] labels={R.string.virtual_stick_size,R.string.virtual_stick_horizontal,R.string.virtual_stick_vertical};
-        int[] values={initial.size(),initial.horizontal(),initial.vertical()};
-        Runnable persist=()->{
-            StickLayout layout=new StickLayout(sliders[0].getProgress()+50,sliders[1].getProgress(),sliders[2].getProgress());
-            try{writeStickLayout(activity,layout);changed.run();}
-            catch(IOException e){Toast.makeText(activity,R.string.controller_setting_error,Toast.LENGTH_LONG).show();}
-        };
-        for(int i=0;i<sliders.length;i++){
-            int minimum=i==0?50:0,resource=labels[i];
-            TextView label=Ui.text(activity,activity.getString(resource,values[i]),15,Ui.TEXT);content.addView(label);
-            SeekBar slider=new SeekBar(activity);sliders[i]=slider;slider.setMax(i==0?200:100);slider.setProgress(values[i]-minimum);
-            slider.setContentDescription(label.getText());content.addView(slider,new LinearLayout.LayoutParams(-1,Ui.dp(activity,48)));
-            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-                private boolean dragging;
-                public void onProgressChanged(SeekBar bar,int progress,boolean fromUser){
-                    label.setText(activity.getString(resource,progress+minimum));bar.setContentDescription(label.getText());
-                    if(fromUser&&!dragging)persist.run();
-                }
-                public void onStartTrackingTouch(SeekBar bar){dragging=true;}
-                public void onStopTrackingTouch(SeekBar bar){dragging=false;persist.run();}
-            });
-        }
-        content.addView(Ui.text(activity,R.string.virtual_stick_layout_hint,12,Ui.MUTED));
-        ScrollView scroll=new ScrollView(activity);scroll.addView(Ui.dialogContent(activity,content));
-        AlertDialog dialog=new AlertDialog.Builder(activity).setTitle(R.string.virtual_stick_layout)
-            .setView(scroll).setPositiveButton(R.string.close,null)
-            .setNeutralButton(R.string.virtual_stick_reset,null).create();
-        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v->{
-            StickLayout defaults=StickLayout.DEFAULT;
-            sliders[0].setProgress(defaults.size()-50);sliders[1].setProgress(defaults.horizontal());sliders[2].setProgress(defaults.vertical());persist.run();
-        }));
-        dialog.show();
-    }
-    private static CheckBox stickOption(Activity activity,boolean dragging,Runnable changed){
-        File file=stickFile(activity,dragging);
+    private static CheckBox stickOption(Activity activity,Runnable changed){
+        File file=stickFile(activity);
         CheckBox box=new CheckBox(activity);
-        box.setText(dragging?R.string.virtual_dragging_origin:R.string.virtual_dynamic_center);
+        box.setText(R.string.virtual_dragging_origin);
         box.setMinHeight(Ui.dp(activity,48));
         box.setChecked(readStickOption(file));
         box.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener(){

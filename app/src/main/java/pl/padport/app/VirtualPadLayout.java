@@ -25,10 +25,11 @@ final class VirtualPadLayout {
         this.mtool=mtool;
         float base=Math.min(density,Math.min(width/480f,height/320f));
         unit=Math.max(.01f,mtool?Math.min(base*1.3f,Math.min(width/400f,height/270f)):base);
-        dpadUnit=Math.max(.01f,Math.min(unit*scale,Math.min(width/4f,height/2f)/(mtool?80:66)));
+        dpadUnit=Math.max(.01f,Math.min(unit*scale,Math.min(width/4f,height/2f)/(VirtualStick.EDGE_MARGIN*(mtool?80:66))));
         dpadRadius=(mtool?80:66)*dpadUnit;
-        dpadX=dpadRadius+Math.max(0,width/2f-2*dpadRadius)*horizontal;
-        dpadY=dpadRadius+Math.max(0,height-2*dpadRadius)*vertical;
+        float edge=dpadRadius*VirtualStick.EDGE_MARGIN;
+        dpadX=PadMath.clamp(dpadRadius+Math.max(0,width/2f-2*dpadRadius)*horizontal,edge,Math.max(edge,width/2f-edge));
+        dpadY=PadMath.clamp(dpadRadius+Math.max(0,height-2*dpadRadius)*vertical,edge,Math.max(edge,height-edge));
         if(mtool){
             buttons=new Button[]{
                 key("Esc",KeyEvent.KEYCODE_ESCAPE,50*unit,28*unit,16*unit),
@@ -73,6 +74,9 @@ final class VirtualPadLayout {
     int maskAt(float x,float y){
         Button button=buttonAt(x,y);
         if(button!=null)return button.index()<0?0:1<<button.index();
+        return directionMaskAt(x,y);
+    }
+    int directionMaskAt(float x,float y){
         if(!inDpad(x,y))return 0;
         if(mtool){
             float dx=x-dpadX,dy=y-dpadY;

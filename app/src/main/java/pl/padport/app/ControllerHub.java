@@ -84,7 +84,7 @@ final class ControllerHub implements InputManager.InputDeviceListener {
     void clear(boolean pause) {
         paused = pause;
         for (Pad p : pads) if (p != null) p.state.clear();
-        virtualPad.paused(pause);
+        virtualPad.clear();virtualPad.paused(pause);
         publish();
     }
     void virtualChanged(){publish();}

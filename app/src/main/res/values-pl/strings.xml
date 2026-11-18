@@ -3,12 +3,11 @@
     <string name="virtual_controller_layout">Układ przycisków</string>
     <string name="virtual_stick_layout">Rozmiar i pozycja gałki</string>
     <string name="virtual_stick_size">Rozmiar: %1$d%%</string>
-    <string name="virtual_stick_horizontal">Pozycja pozioma: %1$d%%</string>
-    <string name="virtual_stick_vertical">Pozycja pionowa: %1$d%%</string>
-    <string name="virtual_stick_layout_hint">Poziomo: od lewej do prawej w lewej połowie ekranu. Pionowo: od góry do dołu. Przy dynamicznym środku jest to pozycja spoczynkowa; dotknięcie wyznacza nowy środek.</string>
+    <string name="virtual_stick_layout_hint">Przeciągnij gałkę, aby ją przesunąć. Pociągnij uchwyt w prawym dolnym rogu, aby zmienić rozmiar. Zapisz zmiany.</string>
+    <string name="virtual_stick_save">Zapisz</string>
     <string name="virtual_stick_reset">Przywróć układ</string>
-    <string name="virtual_dynamic_center">Dynamiczny środek</string>
-    <string name="virtual_dynamic_center_hint">Dotknięcie lewej połowy ekranu ustawia środek gałki. Przyciski mają pierwszeństwo.</string>
+    <string name="virtual_input_prediction">Przewidywanie wejścia</string>
+    <string name="virtual_input_prediction_hint">Dostosuj niewidoczne obszary dotyku na podstawie ostatnich naciśnięć i ruchu palca. Krótkie dotknięcia kierunku zachowują stały środek; dłuższy ruch uwzględnia ustawienie podążania podstawy.</string>
     <string name="virtual_dragging_origin">Podążanie podstawy</string>
     <string name="virtual_dragging_origin_hint">Po przekroczeniu zewnętrznego bufora podstawa podąża za palcem, skracając ruch potrzebny do zmiany kierunku.</string>
     <string name="virtual_layout_default">Styl domyślny</string>

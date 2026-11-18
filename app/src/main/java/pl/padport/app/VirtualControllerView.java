@@ -20,7 +20,13 @@ final class VirtualControllerView extends View {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private VirtualPadLayout layout;
     private boolean mtool;
-    private boolean dynamicCenter,draggingOrigin;
+    private boolean draggingOrigin,predictive;
+    private VirtualInputPrediction prediction;
+    private boolean editing,resizing;
+    private int editorPointer=-1;
+    private float editorOffsetX,editorOffsetY,editorDistance;
+    private int editorSize;
+    private java.util.function.Consumer<VirtualControllerSettings.StickLayout> layoutChanged;
     private VirtualStick stick;
     private VirtualControllerSettings.StickLayout stickLayout=VirtualControllerSettings.StickLayout.DEFAULT;
     private int stickPointer=-1;
@@ -35,15 +41,20 @@ final class VirtualControllerView extends View {
     void configure(boolean enabled,boolean interactive){
         setAlpha(VirtualControllerSettings.alpha(getContext()));
         boolean selected=VirtualControllerSettings.mtoolLayout(getContext());
-        boolean dynamic=VirtualControllerSettings.dynamicCenter(getContext()),dragging=VirtualControllerSettings.draggingOrigin(getContext());
+        boolean dragging=VirtualControllerSettings.draggingOrigin(getContext());
+        boolean predictionEnabled=VirtualControllerSettings.inputPrediction(getContext());
         VirtualControllerSettings.StickLayout geometry=VirtualControllerSettings.stickLayout(getContext());
-        if(layout==null||mtool!=selected||dynamicCenter!=dynamic||draggingOrigin!=dragging||!stickLayout.equals(geometry)){
-            mtool=selected;dynamicCenter=dynamic;draggingOrigin=dragging;stickLayout=geometry;state.clear();rebuildLayout();
+        boolean reset=state.enabled()!=enabled||state.interactive()!=(enabled&&interactive)||predictive!=predictionEnabled;
+        predictive=predictionEnabled;
+        if(layout==null||mtool!=selected||draggingOrigin!=dragging||!stickLayout.equals(geometry)){
+            mtool=selected;draggingOrigin=dragging;stickLayout=geometry;state.clear();rebuildLayout();
+            reset=true;
         }
+        if(reset){state.clear();resetStick();if(prediction!=null)prediction.clear();}
         state.enabled(enabled);state.paused(!interactive);
-        resetStick();setVisibility(enabled?VISIBLE:GONE);updateGestureExclusion();hub.virtualChanged();invalidate();
+        setVisibility(enabled?VISIBLE:GONE);updateGestureExclusion();hub.virtualChanged();invalidate();
     }
-    void suspend(){state.paused(true);resetStick();updateGestureExclusion();hub.virtualChanged();invalidate();}
+    void suspend(){state.clear();state.paused(true);resetStick();if(prediction!=null)prediction.clear();updateGestureExclusion();hub.virtualChanged();invalidate();}
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){
         super.onSizeChanged(w,h,oldw,oldh);
         state.clear();rebuildLayout();
@@ -54,56 +65,147 @@ final class VirtualControllerView extends View {
         layout=new VirtualPadLayout(getWidth(),getHeight(),metrics.density,mtool,stickLayout.scale(),stickLayout.x(),stickLayout.y());
         float xdpi=metrics.xdpi>0&&Float.isFinite(metrics.xdpi)?metrics.xdpi:metrics.densityDpi;
         float ydpi=metrics.ydpi>0&&Float.isFinite(metrics.ydpi)?metrics.ydpi:metrics.densityDpi;
-        float rx=Math.max(1,Math.min(12*stickLayout.scale()*xdpi/25.4f,getWidth()/4f));
-        float ry=Math.max(1,Math.min(12*stickLayout.scale()*ydpi/25.4f,getHeight()/2f));
+        float rx=Math.max(1,Math.min(12*stickLayout.scale()*xdpi/25.4f,getWidth()/(4f*VirtualStick.EDGE_MARGIN)));
+        float ry=Math.max(1,Math.min(12*stickLayout.scale()*ydpi/25.4f,getHeight()/(2f*VirtualStick.EDGE_MARGIN)));
         float x=.4f*rx+Math.max(0,getWidth()/2f-1.4f*rx)*stickLayout.x();
         float y=ry+Math.max(0,getHeight()-2*ry)*stickLayout.y();
         stick=new VirtualStick(getWidth(),getHeight(),rx,ry,x,y);
+        prediction=new VirtualInputPrediction(layout,xdpi/25.4f,ydpi/25.4f,getWidth()/2f,
+            draggingOrigin?stick.x:layout.dpadX,draggingOrigin?stick.y:layout.dpadY,
+            draggingOrigin?rx:layout.dpadRadius,draggingOrigin?ry:layout.dpadRadius);
         stickPointer=-1;
     }
-    private boolean movableStick(){return dynamicCenter||draggingOrigin;}
+    private boolean movableStick(){return draggingOrigin;}
     private boolean startsStick(float x,float y){
         if(!movableStick()||layout.buttonAt(x,y)!=null)return false;
-        return dynamicCenter?x>=0&&x<getWidth()/2f&&y>=0&&y<getHeight():Math.hypot((x-stick.x)/stick.radiusX,(y-stick.y)/stick.radiusY)<=1;
+        return Math.hypot((x-stick.x)/stick.radiusX,(y-stick.y)/stick.radiusY)<=1;
     }
-    private boolean contains(float x,float y){return startsStick(x,y)||layout.contains(x,y);}
+    private boolean inDirection(float x,float y){return movableStick()?startsStick(x,y):layout.buttonAt(x,y)==null&&layout.inDpad(x,y);}
+    private boolean contains(float x,float y,long time,int pointer){
+        return inDirection(x,y)||layout.buttonAt(x,y)!=null||predictive&&prediction.buttonAt(x,y,time,pointer,true)>=0;
+    }
     private void resetStick(){stickPointer=-1;if(stick!=null)stick.reset();}
+    void editLayout(java.util.function.Consumer<VirtualControllerSettings.StickLayout> changed){
+        editing=true;layoutChanged=changed;setAlpha(1);setVisibility(VISIBLE);
+        state.paused(true);resetStick();setGestureExclusionEmpty();invalidate();
+    }
+    VirtualControllerSettings.StickLayout editedLayout(){return stickLayout;}
+    void previewLayout(VirtualControllerSettings.StickLayout value){
+        stickLayout=value;rebuildLayout();invalidate();if(layoutChanged!=null)layoutChanged.accept(value);
+    }
+    private float stickX(){return movableStick()?stick.x:layout.dpadX;}
+    private float stickY(){return movableStick()?stick.y:layout.dpadY;}
+    private float stickRadiusX(){return movableStick()?stick.radiusX:layout.dpadRadius;}
+    private float stickRadiusY(){return movableStick()?stick.radiusY:layout.dpadRadius;}
+    private float resizeX(){
+        float r=16*getResources().getDisplayMetrics().density;
+        return PadMath.clamp(stickX()+stickRadiusX()*.7071f,r,Math.max(r,getWidth()-r));
+    }
+    private float resizeY(){
+        float r=16*getResources().getDisplayMetrics().density;
+        return PadMath.clamp(stickY()+stickRadiusY()*.7071f,r,Math.max(r,getHeight()-r));
+    }
+    private boolean editTouch(MotionEvent event){
+        if(layout==null)return true;
+        int action=event.getActionMasked(),at=event.getActionIndex();
+        if(action==MotionEvent.ACTION_DOWN){
+            float x=event.getX(),y=event.getY(),hit=24*getResources().getDisplayMetrics().density;
+            resizing=Math.hypot(x-resizeX(),y-resizeY())<=hit;
+            if(!resizing&&Math.hypot((x-stickX())/stickRadiusX(),(y-stickY())/stickRadiusY())>1)return true;
+            editorPointer=event.getPointerId(0);editorOffsetX=x-stickX();editorOffsetY=y-stickY();
+            editorSize=stickLayout.size();editorDistance=Math.max(1,(float)Math.hypot(editorOffsetX,editorOffsetY));
+            getParent().requestDisallowInterceptTouchEvent(true);
+        }else if(action==MotionEvent.ACTION_MOVE&&editorPointer!=-1){
+            int index=event.findPointerIndex(editorPointer);if(index<0)return true;
+            float x=event.getX(index),y=event.getY(index);
+            if(resizing){
+                float cx=stickX(),cy=stickY();
+                int size=Math.round(editorSize*(float)Math.hypot(x-cx,y-cy)/editorDistance);
+                stickLayout=new VirtualControllerSettings.StickLayout(Math.max(50,Math.min(250,size)),stickLayout.horizontal(),stickLayout.vertical());
+                rebuildLayout();placeStick(cx,cy);
+            }else placeStick(x-editorOffsetX,y-editorOffsetY);
+            if(layoutChanged!=null)layoutChanged.accept(stickLayout);invalidate();
+        }else if(action==MotionEvent.ACTION_CANCEL||action==MotionEvent.ACTION_UP
+                ||action==MotionEvent.ACTION_POINTER_UP&&event.getPointerId(at)==editorPointer){
+            editorPointer=-1;resizing=false;getParent().requestDisallowInterceptTouchEvent(false);
+            if(action==MotionEvent.ACTION_UP)performClick();
+        }
+        return true;
+    }
+    private void placeStick(float cx,float cy){
+        float rx=stickRadiusX(),ry=stickRadiusY();
+        float minX=(movableStick()?.4f:1)*rx,spanX=Math.max(0,getWidth()/2f-rx-minX);
+        float spanY=Math.max(0,getHeight()-2*ry);
+        int horizontal=spanX>0?Math.round(100*(cx-minX)/spanX):stickLayout.horizontal();
+        int vertical=spanY>0?Math.round(100*(cy-ry)/spanY):stickLayout.vertical();
+        stickLayout=new VirtualControllerSettings.StickLayout(stickLayout.size(),Math.max(0,Math.min(100,horizontal)),Math.max(0,Math.min(100,vertical)));
+        rebuildLayout();
+    }
     @Override protected void onDetachedFromWindow(){state.clear();resetStick();setGestureExclusionEmpty();hub.virtualChanged();super.onDetachedFromWindow();}
 
     @Override public boolean onTouchEvent(MotionEvent event){
+        if(editing)return editTouch(event);
         if(layout==null||!state.enabled())return false;
         int action=event.getActionMasked(),at=event.getActionIndex();
         int before=state.buttons();
         float axisX=state.axis(0),axisY=state.axis(1);
         java.util.Set<Integer> keysBefore=state.keys();
         if(action==MotionEvent.ACTION_DOWN){
-            if(!contains(event.getX(),event.getY()))return false;
+            if(!contains(event.getX(),event.getY(),event.getEventTime(),event.getPointerId(0)))return false;
             state.clear();resetStick();
+            getParent().requestDisallowInterceptTouchEvent(true);
         }
-        if(!state.interactive())return contains(event.getX(at),event.getY(at));
+        if(!state.interactive())return contains(event.getX(at),event.getY(at),event.getEventTime(),event.getPointerId(at));
         if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN){
             int pointer=event.getPointerId(at);float x=event.getX(at),y=event.getY(at);
-            if(stickPointer==-1&&startsStick(x,y)){stickPointer=pointer;stick.begin(x,y,dynamicCenter);}
-            if(contains(x,y))touch(pointer,x,y);
+            boolean direction=inDirection(x,y);
+            if(!direction||stickPointer==-1){
+                if(direction){stickPointer=pointer;stick.reset();}
+                prediction.begin(pointer,x,y,event.getEventTime(),direction);
+                if(contains(x,y,event.getEventTime(),pointer))touch(pointer,x,y,event.getEventTime());
+                else prediction.release(pointer,event.getEventTime(),false);
+            }
         }else if(action==MotionEvent.ACTION_MOVE){
-            for(int i=0;i<event.getPointerCount();i++)if(state.tracks(event.getPointerId(i)))
-                touch(event.getPointerId(i),event.getX(i),event.getY(i));
+            for(int i=0;i<event.getPointerCount();i++)if(state.tracks(event.getPointerId(i))){
+                if(predictive&&prediction.stationary(event.getPointerId(i),event.getX(i),event.getY(i)))continue;
+                if(predictive){
+                    for(int h=0;h<event.getHistorySize();h++)prediction.sample(event.getPointerId(i),event.getHistoricalX(i,h),event.getHistoricalY(i,h),event.getHistoricalEventTime(h));
+                    prediction.sample(event.getPointerId(i),event.getX(i),event.getY(i),event.getEventTime());
+                }
+                touch(event.getPointerId(i),event.getX(i),event.getY(i),event.getEventTime());
+            }
         }else if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP){
-            int pointer=event.getPointerId(at);state.release(pointer);if(pointer==stickPointer)resetStick();
-        }else if(action==MotionEvent.ACTION_CANCEL){state.clear();resetStick();}
+            int pointer=event.getPointerId(at);prediction.release(pointer,event.getEventTime(),predictive&&pointer==stickPointer);
+            state.release(pointer);if(pointer==stickPointer)resetStick();
+        }else if(action==MotionEvent.ACTION_CANCEL){state.clear();resetStick();prediction.clear();}
+        if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL)getParent().requestDisallowInterceptTouchEvent(false);
         if(before!=state.buttons()||axisX!=state.axis(0)||axisY!=state.axis(1)||!keysBefore.equals(state.keys()))hub.virtualChanged();
         updateGestureExclusion();invalidate();
         if(action==MotionEvent.ACTION_UP)performClick();
         return true;
     }
-    private void touch(int pointer,float x,float y){
+    private void touch(int pointer,float x,float y,long time){
         if(pointer==stickPointer){
-            stick.move(x,y,draggingOrigin);state.stick(pointer,stick.axisX,stick.axisY,layout.directionMask(stick.axisX,stick.axisY));
-        }else if(movableStick()){
-            VirtualPadLayout.Button button=layout.buttonAt(x,y);
+            boolean moving=!predictive||prediction.moving(pointer,x,y,time);
+            if(movableStick())stick.move(x,y,moving);
+            if(predictive&&!moving){
+                float cx=movableStick()?stick.x:layout.dpadX,cy=movableStick()?stick.y:layout.dpadY;
+                float rx=movableStick()?stick.radiusX:layout.dpadRadius,ry=movableStick()?stick.radiusY:layout.dpadRadius;
+                int key=Math.hypot((x-cx)/rx,(y-cy)/ry)<=.15f?-1:prediction.direction(x,y,time,pointer);
+                prediction.press(pointer,key,time,true);int d=key-layout.buttons.length;
+                state.stick(pointer,d==2?-1:d==3?1:0,d==0?-1:d==1?1:0,key<0?0:1<<(12+d));
+            }else if(movableStick()){
+                state.stick(pointer,stick.axisX,stick.axisY,layout.directionMask(stick.axisX,stick.axisY));
+            }else{
+                state.touch(pointer,layout.directionMaskAt(x,y));
+            }
+        }else{
+            int key=prediction.buttonAt(x,y,time,pointer,predictive);
+            VirtualPadLayout.Button button=key<0?null:layout.buttons[key];
+            prediction.press(pointer,key,time,predictive);
             state.touch(pointer,button==null||button.index()<0?0:1<<button.index());
             state.touchKey(pointer,button==null?0:button.key());
-        }else{state.touch(pointer,layout.maskAt(x,y));state.touchKey(pointer,layout.keyAt(x,y));}
+        }
     }
     private void setGestureExclusionEmpty(){
         if(Build.VERSION.SDK_INT>=29&&!gestureExclusion.isEmpty())setSystemGestureExclusionRects(Collections.emptyList());
@@ -111,7 +213,7 @@ final class VirtualControllerView extends View {
     }
     private void updateGestureExclusion(){
         if(Build.VERSION.SDK_INT<29)return;
-        if(!state.interactive()||!movableStick()||getVisibility()!=VISIBLE){setGestureExclusionEmpty();return;}
+        if(editing||!state.interactive()||!movableStick()||getVisibility()!=VISIBLE){setGestureExclusionEmpty();return;}
         float density=getResources().getDisplayMetrics().density;
         int height=Math.min(getHeight(),Math.round(200*density));
         int top=Math.round(PadMath.clamp(stick.y-height/2f,0,getHeight()-height));
@@ -128,13 +230,27 @@ final class VirtualControllerView extends View {
 
     @Override protected void onDraw(Canvas canvas){
         super.onDraw(canvas);if(layout==null)return;
+        drawControls(canvas);
+        if(editing){
+            float rx=stickRadiusX()*VirtualStick.EDGE_MARGIN,ry=stickRadiusY()*VirtualStick.EDGE_MARGIN;
+            paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2*getResources().getDisplayMetrics().density);paint.setColor(Ui.ACCENT_TEXT);
+            canvas.drawOval(stickX()-rx,stickY()-ry,stickX()+rx,stickY()+ry,paint);
+            float x=resizeX(),y=resizeY(),r=16*getResources().getDisplayMetrics().density;
+            paint.setStyle(Paint.Style.FILL);paint.setColor(Ui.ACCENT);canvas.drawCircle(x,y,r,paint);
+            paint.setStyle(Paint.Style.STROKE);paint.setColor(Ui.BG);
+            canvas.drawLine(x-r*.35f,y-r*.35f,x+r*.35f,y+r*.35f,paint);
+            canvas.drawLine(x+r*.35f,y-r*.1f,x+r*.35f,y+r*.35f,paint);
+            canvas.drawLine(x-r*.1f,y+r*.35f,x+r*.35f,y+r*.35f,paint);
+        }
+    }
+    private void drawControls(Canvas canvas){
         float u=layout.dpadUnit,cx=layout.dpadX,cy=layout.dpadY,r=layout.dpadRadius;
         if(movableStick()){
             canvas.save();canvas.translate(stick.x,stick.y);canvas.scale(stick.radiusX/r,stick.radiusY/r);
             drawCircularDpad(canvas,u,0,0,r);
             if(stickPointer!=-1){
                 paint.setStyle(Paint.Style.FILL);paint.setColor(0x99f6f6f6);
-                canvas.drawCircle(stick.thumbX*r,stick.thumbY*r,r*.18f,paint);
+                canvas.drawCircle(stick.thumbX*r*.82f,stick.thumbY*r*.82f,r*.18f,paint);
             }
             canvas.restore();
             for(VirtualPadLayout.Button button:layout.buttons)drawButton(canvas,button,layout.unit);
