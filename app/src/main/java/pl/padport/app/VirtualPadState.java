@@ -31,6 +31,9 @@ final class VirtualPadState {
         pointers.remove(pointer);keyPointers.remove(pointer);
         if(pointer==stickPointer){stickPointer=-1;stickX=stickY=0;}
     }
+    void retainPointers(Set<Integer> active){
+        for(int pointer:new HashSet<>(pointers.keySet()))if(!active.contains(pointer))release(pointer);
+    }
     void clear(){pointers.clear();keyPointers.clear();stickPointer=-1;stickX=stickY=0;}
     int buttons(){
         if(!interactive())return 0;

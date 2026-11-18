@@ -3,6 +3,8 @@ package pl.padport.app;
 import android.view.KeyEvent;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Event-driven hit areas; all geometry and weights use millimetres. */
 final class VirtualInputPrediction {
@@ -92,6 +94,12 @@ final class VirtualInputPrediction {
     void release(int pointer,long time,boolean direction){
         Pointer p=pointers.remove(pointer);
         if(direction&&p!=null&&time-p.downTime<=160)taps[tapIndex++%taps.length]=time;
+    }
+    void retainPointers(Set<Integer> active,long time){
+        for(int pointer:new HashSet<>(pointers.keySet()))if(!active.contains(pointer)){
+            Pointer p=pointers.get(pointer);
+            release(pointer,time,p.group==2);
+        }
     }
     void press(int pointer,int key,long time,boolean learn){
         Pointer p=pointers.get(pointer);if(p==null||p.key==key)return;

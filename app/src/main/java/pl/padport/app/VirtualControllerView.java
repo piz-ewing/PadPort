@@ -156,6 +156,11 @@ final class VirtualControllerView extends View {
             getParent().requestDisallowInterceptTouchEvent(true);
         }
         if(!state.interactive())return contains(event.getX(at),event.getY(at),event.getEventTime(),event.getPointerId(at));
+        java.util.Set<Integer> active=new java.util.HashSet<>();
+        if(action!=MotionEvent.ACTION_UP&&action!=MotionEvent.ACTION_CANCEL){
+            for(int i=0;i<event.getPointerCount();i++)
+                if(action!=MotionEvent.ACTION_POINTER_UP||i!=at)active.add(event.getPointerId(i));
+        }
         if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN){
             int pointer=event.getPointerId(at);float x=event.getX(at),y=event.getY(at);
             boolean direction=inDirection(x,y);
@@ -178,6 +183,9 @@ final class VirtualControllerView extends View {
             int pointer=event.getPointerId(at);prediction.release(pointer,event.getEventTime(),predictive&&pointer==stickPointer);
             state.release(pointer);if(pointer==stickPointer)resetStick();
         }else if(action==MotionEvent.ACTION_CANCEL){state.clear();resetStick();prediction.clear();}
+        state.retainPointers(active);
+        prediction.retainPointers(active,event.getEventTime());
+        if(stickPointer!=-1&&!active.contains(stickPointer))resetStick();
         if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL)getParent().requestDisallowInterceptTouchEvent(false);
         if(before!=state.buttons()||axisX!=state.axis(0)||axisY!=state.axis(1)||!keysBefore.equals(state.keys()))hub.virtualChanged();
         updateGestureExclusion();invalidate();
@@ -197,7 +205,8 @@ final class VirtualControllerView extends View {
             }else if(movableStick()){
                 state.stick(pointer,stick.axisX,stick.axisY,layout.directionMask(stick.axisX,stick.axisY));
             }else{
-                state.touch(pointer,layout.directionMaskAt(x,y));
+                int mask=layout.directionMaskAt(x,y);
+                state.stick(pointer,((mask>>15)&1)-((mask>>14)&1),((mask>>13)&1)-((mask>>12)&1),mask);
             }
         }else{
             int key=prediction.buttonAt(x,y,time,pointer,predictive);
