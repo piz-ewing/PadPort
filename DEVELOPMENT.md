@@ -9,17 +9,16 @@ wejściem gamepada: Bluetooth, USB i kontrolery wbudowane w handheldy.
 **APK:** `dist/PadPort-0.6.1-debug.apk`  
 **Instrukcja użytkownika:** `HOW-TO-RUN.txt` / `JAK-URUCHOMIC.txt`
 
-**Dodawanie profili drugiego ekranu:** [DUAL_SCREEN.md](DUAL_SCREEN.md)
 
 ## Jak działa
 
-1. Systemowy picker przyznaje trwały **odczyt** wybranego folderu (SAF).
-2. Launcher rozpoznaje `index.html`, także pod `www/`, i indeksuje pliki.
-3. WebView dostaje lokalny, wirtualny adres HTTPS. Każda gra ma własny origin,
-   więc jej localStorage/IndexedDB i konfiguracja nie mieszają się z innymi grami.
-4. Do odpowiedzi HTML dodawany jest w pamięci skrypt wejścia. Żaden plik gry
-   nie jest przepisywany. Fonty, zaszyfrowane assety, JS, JSON i WASM są czytane
-   z oryginalnego folderu.
+1. Systemowy picker przyznaje trwały dostęp do wybranego folderu (SAF).
+2. Launcher zapisuje identyfikator gry i URI. Rozpoznawanie MV/MZ oraz katalogowe
+   indeksowanie nadal migrują z Java `GameSource` do Node.
+3. Gry MV/MZ działają w systemowym Chromium WebView. Node serwuje stronę z oryginalnego folderu,
+   a dostęp do plików SAF przez `GameDocuments` i Node `DocumentFiles`, bez kopii.
+4. Node obsługuje zwykłe foldery i ASAR przez jedną warstwę plików;
+   RGSS nadal uruchamia osobny silnik natywny.
 5. `InputManager`, `KeyEvent` i `MotionEvent` dostarczają stan kontrolerów.
    `navigator.getGamepads()` zwraca standardowe przyciski 0–16, cztery osie,
    analogowe wartości triggerów i informacje o podłączeniu.
@@ -34,132 +33,47 @@ hat/d-pad, cyfrowe i analogowe triggery, pauza/utrata fokusu i odłączenie pada
 Cyfrowy sygnał L2/R2 nie spłaszcza równoległego pomiaru analogowego do 0/1.
 Wbudowany kontroler jest obsługiwany tą samą ścieżką co pozostałe urządzenia.
 
-## Dlaczego GeckoView
+## Przeglądarka i proces Node
 
-MV/MZ mają dwa odtwarzacze: **GeckoView** (`GeckoPlayerActivity`, domyślny)
-i **Android System WebView** (`PlayerActivity`). Wybór jest per gra, w klasie
-`GameEngine`: plik `filesDir/engine-<id>.txt` z `gecko` albo `webview`; brak
-pliku albo inna wartość = `gecko`. Plik, a nie pole w bibliotece, bo
-`Library.replaceRecord` przy odświeżeniu gry przenosi tylko wybrane pola.
-Checkbox „Use GeckoView (64-bit engine)” jest w menu ⋮ karty gry
-(`GameEngine.controls`), a przed zmianą pokazuje ostrzeżenie o osobnych zapisach.
-GeckoView jest spakowany tylko dla `arm64-v8a`, więc bez 64-bitowego ARM
-(`GameEngine.geckoSupported`) gra zawsze idzie przez WebView i checkboxa nie ma.
-`MainActivity` odczytuje silnik przy każdym „Play”.
+Gry MV/MZ oraz tester kontrolera używają systemowego Chromium WebView
+w PlayerActivity. APK zawiera biblioteki natywne arm64-v8a.
+PlayerActivity odbiera wejście i cykl życia. NodeRuntime łączy ją z osobnym
+procesem NodeService, który obsługuje pliki, moduły i zasoby HTTP.
 
-Dlaczego GeckoView domyślnie: na części urządzeń renderer systemowego WebView jest
-**32-bitowy**. AYN Thor (sprawdzone przez `adb shell dumpsys package
-com.android.webview`): WebView 109.0.5414.123 (AOSP, jedyny dozwolony dostawca -
-`dumpsys webviewupdate`, więc bez aktualizacji z Google Play),
-`primaryCpuAbi=armeabi-v7a`, a PadPort działa jako `arm64-v8a`. Proces 32-bitowy
-ma około 3-4 GB przestrzeni adresowej. Na Thorze Look Outside wysypało renderer
-po około 6,5 minuty (`SIGTRAP` w `libwebviewchromium.so`, `ABI: 'arm'`,
-`aw_browser_terminator: Renderer process crash detected (code 5)`).
+Synchroniczne operacje plikowe korzystają z JavascriptInterface i trwałego
+uwierzytelnionego kanału TCP do Node. Ramki mają 8-bajtowy nagłówek little-endian
+(długość i typ) oraz treść JSON. Błędy plików wracają bez zmiany ich kodów;
+nieudane zapisy nie są automatycznie powtarzane. Zasoby i asynchroniczne
+wywołania nadal korzystają z HTTP, a wejście i polecenia z SSE.
+JNI przekazuje operacje SAF do GameDocuments.
+Katalog roboczy stron HTML to katalog pliku wejściowego; skrypt główny
+Electron zachowuje katalog pakietu. Względne ścieżki fs i path.resolve()
+korzystają z tego samego process.cwd(). Bezwzględne ścieżki w /game
+zachowują położenie, także przy zapisie obok archiwum ASAR.
 
-**GeckoView** (silnik Firefoksa) ma własny proces treści należący do aplikacji,
-zawsze 64-bitowy. Różnice względem WebView:
+Pauza i wznowienie obejmują WebView oraz jego zegary. Przywrócenie audio
+nie czeka na zakończenie oczekującego suspend(). Zamknięcie gry zwalnia
+kanał plikowy, deskryptory oraz proces Node. Origin zależy od identyfikatora
+gry; format i położenie zapisów plikowych określa jej silnik.
+Dane przeglądarkowe ze wcześniejszego silnika nie są automatycznie migrowane.
 
-- GeckoView nie ma `shouldInterceptRequest`, więc gra jest serwowana przez
-  `GameHttpServer` na `127.0.0.1`: losowy token sesji w każdym URL-u, port
-  wyliczany z id gry, żeby origin, a z nim zapisy, był stały między uruchomieniami.
-- Nie ma też `addJavascriptInterface`: `gecko-host.js` odtwarza `PadPortHost`
-  przez Server-Sent Events (stan pada, komendy) i krótkie żądania POST.
-  `bridge.js`, `look-outside-dual.js` i dolny panel są wspólne z WebView.
-- **Zapisy są osobne.** Origin (`http://127.0.0.1:<port>` zamiast
-  `https://g<id>.padport.local`) i profil przeglądarki są inne, więc gra
-  w GeckoView nie widzi zapisów z WebView i odwrotnie. Przenosi się je
-  eksportem w jednym silniku i importem w drugim (ten sam format kopii).
-- Menu gry w GeckoView ma to samo co WebView: Controller mapping, eksport
-  i import zapisów (`GameHttpServer.exported/imported/saveError` +
-  `command("exportSaves" / "restore:<json>")`), diagnostyka, pad ekranowy,
-  dwa ekrany, przycisk ⋮ ukrywany po 5 s. Tryb klawiatury wysyła klawisze przez
-  `session.getTextInput().onKeyDown/onKeyUp` (bez tego gra w trybie klawiatury
-  nie dostawała żadnego wejścia: `bridge.js` ukrywa wtedy pady). Gotowość strony
-  daje `ProgressDelegate.onPageStop`. Awaria ma własny komunikat
-  (`renderer_crashed_gecko`).
-- **Dźwięk:** Gecko, jak Firefox, nie startuje `AudioContext` bez gestu
-  użytkownika, a wejście z pada gestem nie jest. Gra grana padem była cicha
-  (`An AudioContext was prevented from starting automatically`). Przy tworzeniu
-  `GeckoRuntime` PadPort zapisuje `filesDir/geckoview-config.yaml`
-  (`media.autoplay.default: 0`, `media.autoplay.block-webaudio: false`)
-  i podaje go przez `GeckoRuntimeSettings.configFilePath`. Jawną ścieżkę Gecko
-  czyta także w buildzie release (tylko domyślna `/data/local/tmp/...` jest dla
-  debug), w logu: `GeckoRuntime: Adding debug configuration from: ...`.
-  Sprawdzone na AYN Thor: muzyka gra, zero blokad `AudioContext`.
-  Odpowiednik w WebView: `setMediaPlaybackRequiresUserGesture(false)`.
-- Tester kontrolera (bez gry) nadal działa tylko w `PlayerActivity`.
+Menu gry otwiera się z pływającego przycisku i pozostaje nad stroną gry.
+Panel ustawień i okno diagnostyki utrzymują wspólną pauzę. Utrata fokusu
+czyści wejście, a stan audio zmienia dopiero cykl życia aktywności lub menu.
+Potwierdzenie zakończenia pauzy strony poprzedza zatrzymanie zegarów WebView; przy wznowieniu
+zegary ruszają przed wywołaniem strony. Opóźnione migawki kontrolera nie
+zmieniają stanu audio w natywnym odtwarzaczu.
+Oczekujące play() jest najpierw wyciszane, a pause() następuje po zakończeniu
+żądania odtwarzania. Szybkie wznowienie unieważnia oczekującą pauzę.
+Błędy oryginalnego play() nadal trafiają do wywołującego.
+
+Diagnostyka przechowuje osobno błędy i pozostałe komunikaty. Powtórzenia są
+liczone, a zapis do logcat jest ograniczany dla identycznych komunikatów.
+Powtarzające się ostrzeżenia nie usuwają w ten sposób ostatnich błędów.
+
 
 ## Bieżące zmiany w kodzie — bez nowego APK
 
-- **To the Moon (XP/RGSS): dolny ekran jako notatnik.** Zakładki Postacie,
-  Notatki i Przedmioty zawierają dane bieżącej rozgrywki. Dotknięcie wpisu
-  pokazuje opis; źródłem są biogramy gry i wyłącznie posiadane przedmioty.
-  Klasyfikacja notatek używa `NoteText` z gry, również ze spolszczenia.
-  Ekran startowy/tytułowy (także tytuł zrobiony na mapie) nie pokazuje danych
-  poprzedniej rozgrywki. Notatnik jest niezależnym podglądem, nie zastępuje
-  zapisu/wczytywania ani oryginalnego menu na górnym ekranie.
-- Profil TTM używa tego samego włącznika, ikony i pytania przy dodawaniu co
-  Look Outside. Pytanie jest po zgodzie na eksperymentalny RGSS. Preferencja
-  `dual-screen-<id>.enabled` jest czytana z pliku przez oba procesy; stare
-  `dualScreen` w bibliotece pozostaje wartością zapasową. Proces RGSS nie
-  nadpisuje całej biblioteki ani historii ostatniego uruchomienia.
-- Adapter Ruby `rgss/padport_ttm_dual.rb` działa w wątku silnika przez hook
-  `Graphics.update`. Z Androidem wymienia atomowe pliki w prywatnym
-  `files/rgss/<id>/companion`, poza folderami gry i zapisów. Heartbeat,
-  identyfikator sesji i generacja ekranu odrzucają stare dane. Drugi ekran
-  dostaje lekki panel HTML, nie drugą instancję RGSS. WebView procesu RGSS
-  ma na Androidzie 9+ osobny katalog danych (`rgss-companion`).
-- Testy TTM: Ruby (także porównanie z metodami oryginalnego menu), testy
-  panelu JS, IPC i ustawień JVM. Nowego APK ani próby na fizycznym Thorze
-  dla tego profilu jeszcze nie wykonano.
-- **Look Outside: opcjonalny interfejs dwuekranowy.** Włącznik jest w menu karty
-  gry oraz w menu podczas rozgrywki. Przy pierwszym dodaniu Look Outside na
-  urządzeniu z dostępnym drugim ekranem pojawia się pytanie o włączenie.
-  Ikona dwóch ekranów w bibliotece oznacza zapisane włączenie funkcji, nie
-  aktualną dostępność wyświetlacza. Odświeżenie indeksu zachowuje `dualScreen`.
-- Drugi ekran pokazuje drużynę, portrety, HP/staminę, widoczne statusy oraz
-  wyposażenie. Przycisk ekwipunku na dolnym panelu otwiera prawdziwą scenę
-  przedmiotów gry, której listę i wybór celu obsługujemy na dole; na górze
-  zostaje jej tło. Tylko ta konkretna instancja sceny jest oznaczana jako dolna.
-  Ekwipunek otwarty ze zwykłego menu gry pozostaje na głównym ekranie. Komendy
-  przechodzą przez oryginalne `Window_ItemList`/`Window_MenuActor` i nadpisane
-  przez Look Outside `Scene_Item.onItemOk`. Zużycie, efekty i zdarzenia pozostają
-  po stronie jednej instancji gry. W walce dolny panel pokazuje stan drużyny;
-  komendy walki nadal są na górze. Zmiana wyposażenia nie została przeniesiona.
-- Nazwa przycisku ekwipunku jest brana z `TextManager.item` działającej gry,
-  więc spolszczone „Ekwipunek” nie zależy od języka interfejsu Androida.
-  Font panelu pochodzi z aktualnej rodziny okna gry / `mainFontFace()` oraz
-  `FontManager._urls`. `DualScreenSession` udostępnia ten sam plik z `fonts/`
-  przez lokalny endpoint `game-font`, a panel ładuje go przez `FontFace`.
-  Dotyczy WebView i GeckoView; brak pliku lub błąd fontu zostawia czytelny
-  krój systemowy. Font nie jest modyfikowany ani wbudowywany do APK.
-- Tło panelu Look Outside jest czarne. Przycisk ekwipunku jest zachowywany
-  między odświeżeniami i przygasa przy rzeczywistej blokadzie, np. podczas
-  rozmowy lub walki. Sam chód/sprint nie powoduje przygaszania ani migania.
-  Wybranie przedmiotu przewija do jego opisu, również po ponownym dotknięciu
-  bieżącego wpisu. Odświeżenia danych i zmiana kategorii nie wymuszają przewijania.
-- Karty postaci i ich portrety są zachowywane według ID postaci. Zmiana HP,
-  wyposażenia lub wybór celu nie tworzą obrazu od nowa. Przy zmianie portretu
-  stary pozostaje widoczny do pełnego wczytania i zdekodowania nowego; brak
-  pikseli i spóźnione callbacki nie kasują gotowego obrazu. Cache miniatur
-  działa również wtedy, gdy `ImageManager` przeładowuje plik źródłowy.
-- Chód/sprint nie zmienia dostępności przycisku. Kliknięcie w ruchu czeka na
-  koniec kroku w natywnym `Scene_Map.updateCallMenu`; rozmowa, walka, transfer,
-  pauza lub skryptowa blokada menu anulują oczekujące otwarcie. Zwykłe menu gry
-  zachowuje pierwszeństwo i nadal trafia na główny ekran.
-- Własne checkboxy i opis trybu dwuekranowego mają w dialogach taki sam
-  poziomy odstęp (24 dp) jak pozycje listy. Biblioteka startuje jako `singleTop`
-  i odrzuca ponowny start launchera nad istniejącym zadaniem; uruchomienie przez
-  `run_device.py` używa tego samego `MAIN`/`LAUNCHER` co ikona aplikacji.
-- Wspólny adapter `assets/look-outside-dual.js` obsługuje WebView i eksperymentalny
-  GeckoView. Dolny panel to lekki WebView w `Presentation`, bez drugiego silnika
-  gry. Wykrywanie korzysta z `DisplayManager`, bez założenia `displayId=1`.
-  Wyłączenie/utrata ekranu odtwarza oryginalne okna i dotyk; input z poprzedniej
-  sceny lub generacji ekranu jest odrzucany. Pliki źródłowe gry są tylko czytane.
-- Zweryfikowano testami JVM/JS ustawienia, selekcję ekranów, blokady menu,
-  przywracanie UI i użycie przedmiotów (także z metodami z lokalnego Look Outside).
-  Fizyczny Thor, układ dolnego panelu i obsługa dotyku na dwóch ekranach czekają
-  na test po zleconym buildzie APK; funkcja nie jest w dotychczasowym APK 0.5.
 - W opcjach kontrolera dostępne są tryby **Gamepad (klasyczny)** i **Klawiatura**.
   Pierwszy zachowuje dotychczasową obsługę. Drugi zamienia stan kontrolerów
   fizycznych i ekranowego na klawisze; Gamepad API jest wtedy wyciszone, aby
@@ -386,16 +300,34 @@ Polecenie do użycia po zleceniu buildu:
 .\gradlew.bat testDebugUnitTest lintDebug assembleDebug
 ```
 
-Potrzebne są JDK 17 i Android SDK 35. Alternatywna, użyta lokalnie ścieżka:
+Potrzebne są JDK 17 lub nowszy i Android SDK 35.
+
+Host Node wymaga NDK `27.0.12077973` i CMake `3.22.1`. Przygotowanie
+zależności oraz skryptów uruchomieniowych:
+
+```powershell
+python tools/fetch_node_runtime.py
+python tools/fetch_rgss_engine.py
+npm ci --prefix runtime
+npm run build --prefix runtime
+```
+
+Skrypt pobierania sprawdza SHA-512 oficjalnego pakietu Node.js Mobile
+`18.20.4`. Biblioteki i nagłówki trafiają do `.tools/nodejs-mobile`.
+Wspólna biblioteka C++ pochodzi z NDK. Licencja Node i jego zależności
+znajduje się w `app/src/main/assets/node-LICENSE.txt`.
+
+Alternatywna ścieżka budowania:
 
 ```powershell
 python tools/build.py testDebugUnitTest lintDebug assembleDebug
 ```
 
-`tools/bootstrap.py` przygotowuje Gradle 8.9 i platformę SDK w `.tools/`,
-weryfikując sumy pobranych oficjalnych archiwów. Wykorzystuje istniejący JDK
-oraz Android SDK/build-tools i zaakceptowane już licencje z tego SDK.
-Lokalnie `ANDROID_HOME` może wskazywać instalację SDK użytkownika.
+`tools/bootstrap.py` korzysta z zainstalowanego JDK, SDK wskazanego przez
+`local.properties` lub `ANDROID_HOME` oraz Gradle 8.14.5 z lokalnego cache
+albo `GRADLE_HOME`. `tools/build.py` uruchamia Gradle z `--offline`; brakujący
+komponent zgłasza jako błąd. Zależności natywne muszą być już przygotowane
+przed budowaniem.
 
 APK pochodzi z `app/build/outputs/apk/debug/app-debug.apk`; skrypt pakujący
 kopiuje je i instrukcję do `dist/`, a także zapisuje SHA-256. To podpisany
@@ -405,19 +337,11 @@ kluczem debug build testowy. APK nie zawiera plików gier.
 
 ```powershell
 node --test tests/bridge.test.cjs
-node --test tests/dual-screen.test.cjs
-node --test tests/companion-panels.test.cjs
-node --test tests/fear-and-hunger-dual.test.cjs
 node --test tests/game-compat.test.cjs
-node --test tests/elderfield-dual.test.cjs
-ruby tests/ttm-dual-test.rb
+npm test --prefix runtime
 python -m unittest discover -s tests -p "test_*.py"
-.\gradlew.bat testDebugUnitTest
+python tools/build.py testDebugUnitTest
 ```
-
-Opcjonalny test integracji z rzeczywistymi skryptami Look Outside (odczyt, bez
-modyfikacji gry): ustaw `LOOK_OUTSIDE_GAME` na katalog gry i uruchom ponownie
-`node --test tests/dual-screen.test.cjs`.
 
 Testy JVM obejmują zakresy osi, martwe strefy, mapowanie HID, łączenie stanów
 klawiszy/hatów/triggerów i zakresy odczytu zasobów. Testy JS obejmują strukturę

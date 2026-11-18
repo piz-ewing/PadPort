@@ -26,12 +26,8 @@ your game files.
 - **Game library** with artwork from the game itself, from Steam, or your own
   picture.
 - **Save backups**: export your saves and import them again.
-- **Two screens** (e.g. AYN Thor): extra panels for *Look Outside*,
-  *To the Moon*, *Fear & Hunger* and *Welcome to Elderfield* on the second
-  screen (experimental).
-- **Two browser engines** for MV / MZ games: GeckoView, the 64-bit Firefox
-  engine built into PadPort (default), and the Android System WebView.
-  See [Why GeckoView?](#why-geckoview)
+- **Chromium System WebView** for MV / MZ games, with a separate Node runtime
+  for game files, modules, and local services. See [Browser runtime](#browser-runtime).
 - English and Polish, following your Android language.
 
 ## What you need
@@ -103,32 +99,6 @@ see-through with the transparency slider.
 mode to **Keyboard** and the controller will press keys instead (you can change
 which key each button presses).
 
-## Two screens
-
-> **Experimental.** The two-screen mode is new. It may be unstable, and it can
-> make the game crash. Save often, and if you run into problems, turn it off in
-> the game's ⋮ menu and [open an issue](../../issues/new).
-
-On devices with a second screen (e.g. AYN Thor), PadPort can show extras there.
-
-![Look Outside on the AYN Thor: a battle on the top screen, party status and the Items button on the bottom screen](docs/look-outside-thor.jpg)
-
-This needs a panel made for each game, so it works only with these games:
-
-| Game | RPG Maker | Second screen shows |
-| --- | --- | --- |
-| *Look Outside* | MZ | Your party with portraits, HP, stamina, status and gear, plus an inventory button - pick an item on the bottom screen and use it. |
-| *To the Moon* | XP | A notebook with Characters, Notes and Items. Tap an entry to read it. It only shows what you already have in your game. |
-| *Fear & Hunger* | MV | Your party with portraits, Body and Mind, lost limbs, conditions such as hunger, fear or bleeding, and equipment. In battle, a card shakes when that character loses Body. Status only - menus and battle stay on the main screen. |
-| *Welcome to Elderfield* | MZ | Your character (portrait from the character creator, HP/MP, energy, effects, gear), the time, weather and gold, under a sky that follows the time of day, season and weather. Open the game's item menu and use items from the bottom screen; the game's own action, target and discard prompts appear as buttons. |
-
-When you add one of these games, PadPort asks if you want the second screen.
-You can turn it on or off any time in the game's ⋮ menu or in the menu while
-playing. Battle commands and the game's own menus stay on the main screen.
-
-Want this for another game? See
-[Want a game supported, or a two-screen mode for it?](#want-a-game-supported-or-a-two-screen-mode-for-it)
-
 ## While playing
 
 - The game fills the screen and keeps its shape (black bars at the sides when
@@ -136,7 +106,7 @@ Want this for another game? See
 - The small menu button hides after 5 seconds. Touch the screen or press the
   Android Back button to bring it back.
 - From that menu you can **Export saved games**, **Import save backup**, show
-  the on-screen controller, turn the second screen on or off, copy a diagnostic
+  the on-screen controller, copy a diagnostic
   log, or go **Back to library**.
 - **Limit the screen to 60 Hz** (off by default, MV / MZ): RPG Maker games run
   at 60 FPS, so on 90 / 120 Hz screens (e.g. AYN Thor) this saves battery. A
@@ -175,31 +145,16 @@ The existing JSON backup import and export remain available.
 Export backups first. Moving the game folder changes its identity in PadPort;
 use an exported backup to move saves to a different folder.
 
-## Why GeckoView?
+## Browser runtime
 
-MV and MZ games are web games, so PadPort needs a browser engine to run them.
-It has two:
+MV and MZ games run in Android System WebView, which provides Chromium rendering
+and WebAudio. A separate Node process handles game files, CommonJS modules,
+and local resource requests.
 
-- **GeckoView** (default) - the Firefox engine. PadPort has its own copy, and
-  it always runs as **64-bit**, so it has plenty of room for big games.
-- **Android System WebView** - the browser engine built into Android.
+Game saves use the engine's original file format and directory. They remain
+with the game folder across player restarts. Browser storage created by an
+earlier browser engine is separate and is not automatically migrated.
 
-Why GeckoView is the default: on some devices, like the AYN Thor, the Android
-System WebView is old and runs games as a **32-bit** process. A 32-bit process
-can use only about 3-4 GB of memory, and big games such as *Look Outside* can
-crash there ("The game stopped"). On the Thor this WebView cannot even be
-updated from Google Play.
-
-To switch a game to the Android System WebView, open the game's ⋮ menu and
-untick **Use GeckoView (64-bit engine)**. The setting is kept for each game.
-
-**Each engine has its own saves.** After switching, the game does not see the
-saves made with the other engine. They are not deleted - switch back and they
-are there again. To move saves, use **Export saved games** in one engine and
-**Import save backup** in the other.
-
-If something works in one engine and not in the other, please
-[open an issue](../../issues/new).
 
 ## Games with extra fixes
 
@@ -207,7 +162,7 @@ Some games use PC-only add-ons. PadPort carries small fixes for those it knows:
 
 | Game | RPG Maker | What PadPort fixes |
 | --- | --- | --- |
-| *Welcome to Elderfield* | MZ | Starts at all (its Steam and plugin-toggle add-ons stop it outside the PC version). NPC gift reactions work (gift tables are loaded). The in-game radio, including *The Weather Channel*, plays. Also has a [second-screen panel](#two-screens). |
+| *Welcome to Elderfield* | MZ | Starts at all (its Steam and plugin-toggle add-ons stop it outside the PC version). NPC gift reactions work (gift tables are loaded). The in-game radio, including *The Weather Channel*, plays. |
 | Games using the **FOSSIL** plugin | MZ | FOSSIL rewrites its start page on PC; PadPort serves that page directly. |
 | Games that ask for **full screen** at start | MV / MZ | The request is answered as done - PadPort is already full screen - instead of stopping the game. |
 
@@ -221,10 +176,8 @@ delete them (game data and saves are never touched).
 - **The game does not start or shows an error:** open the menu while playing
   and choose **Diagnostics / copy log**, then send the log along with your
   question.
-- **The game closes by itself ("The game stopped" or "Android closed the game
-  to free memory"):** your saved progress is kept. For MV / MZ games, try the
-  other engine with **Use GeckoView (64-bit engine)** in the game's ⋮ menu -
-  saves are separate per engine, see [Why GeckoView?](#why-geckoview)
+- **The game closes by itself:** saved progress is kept. Restart the game
+  and include the diagnostic log when reporting the problem.
 - **The game worked before an update:** use **Refresh files after a game
   update** in the game's ⋮ menu.
 - **XP / VX / VX Ace games** are experimental. Games that need the RPG Maker RTP
@@ -232,7 +185,7 @@ delete them (game data and saves are never touched).
 - Some MV / MZ games use special PC-only add-ons and may need extra support.
   Tell us which game it is.
 
-## Want a game supported, or a two-screen mode for it?
+## Want a game supported?
 
 **[Open an issue](../../issues/new)** and tell us:
 
@@ -243,16 +196,11 @@ delete them (game data and saves are never touched).
   a button does not work,
 - the log from **Diagnostics / copy log**, if the game starts at all.
 
-Want a **second-screen panel** for a game, like the ones for *Look Outside*,
-*To the Moon*, *Fear & Hunger* or *Welcome to Elderfield*? Open an issue too, and write what you would like to see on the
-second screen (party, map, inventory, notes...).
-
 ## For developers
 
 - [Debugging MV/MZ games](docs/DEBUGGING.md) - live debugging and runtime reports
-- [DEVELOPMENT.md](DEVELOPMENT.md) - how it works, building, tests, why GeckoView (Polish)
+- [DEVELOPMENT.md](DEVELOPMENT.md) - how it works, building, tests (Polish)
 - [RGSS.md](RGSS.md) - RPG Maker XP / VX / VX Ace support (Polish)
-- [DUAL_SCREEN.md](DUAL_SCREEN.md) - adding second-screen profiles (Polish)
 
 ## License
 
