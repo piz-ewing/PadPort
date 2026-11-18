@@ -15,7 +15,7 @@ import java.io.IOException;
  * RPG Maker MV/MZ run their game logic at a fixed 60 steps per second. On 90/120 Hz screens
  * (e.g. AYN Thor) a higher refresh rate only renders duplicate frames and costs battery, and
  * a game's "unlimited" frame-rate option (PIXI ticker maxFPS = 0) follows the screen. When the
- * option is on, the game window asks for the screen's 60 Hz mode; this is a hint the system may
+ * option is on, the game window asks for a 60 Hz refresh rate; this is a hint the system may
  * ignore, and nothing changes on screens without such a mode.
  */
 final class DisplayRate {
@@ -34,10 +34,13 @@ final class DisplayRate {
     }
     static void apply(Window window,Display display,boolean limit){
         if(window==null||display==null)return;
-        int mode=limit?mode60(display):0;
+        float rate=limit&&mode60(display)!=0?60f:0f;
         WindowManager.LayoutParams params=window.getAttributes();
-        if(params.preferredDisplayModeId==mode)return;
-        params.preferredDisplayModeId=mode;   // 0 = no preference, the system default
+        if(params.preferredDisplayModeId==0&&params.preferredRefreshRate==rate)return;
+        // A mode ID also requests an exact display configuration. Request only
+        // the refresh rate so the compositor can pace compatible display modes.
+        params.preferredDisplayModeId=0;
+        params.preferredRefreshRate=rate;
         window.setAttributes(params);
     }
     private static int mode60(Display display){
